@@ -229,6 +229,59 @@ h1 {
   color: var(--text);
 }
 
+/* ===== 公式リンク ===== */
+.official-section {
+  padding-top: 26px;
+}
+
+.official-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.official-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-soft);
+  text-decoration: none;
+  color: var(--text);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.official-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  background: var(--field);
+}
+
+.official-eyebrow {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+.official-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.official-go {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 /* ===== フッター ===== */
 .site-footer {
   margin-top: 22px;
@@ -266,6 +319,10 @@ h1 {
   }
 
   .tool-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .official-links {
     grid-template-columns: 1fr;
   }
 }
