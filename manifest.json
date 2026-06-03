@@ -1,0 +1,18 @@
+{
+  "name": "Bar Soutsu ツールズ TOP",
+  "short_name": "Bar Soutsu",
+  "description": "Bar Soutsuの社内Webツール一覧（原価計算・レシピ帳・ジン教本・ジンニュース）への入口です。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#15120f",
+  "theme_color": "#15120f",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

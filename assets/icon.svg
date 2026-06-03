@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bar Soutsu ツールズ TOP">
+  <rect width="512" height="512" rx="96" fill="#15120f"/>
+  <rect x="96" y="96" width="140" height="140" rx="8" fill="#d8ad62"/>
+  <rect x="276" y="96" width="140" height="140" rx="8" fill="#8bb58f"/>
+  <rect x="96" y="276" width="140" height="140" rx="8" fill="#8bb58f"/>
+  <rect x="276" y="276" width="140" height="140" rx="8" fill="#d8ad62"/>
+  <path d="M150 396h212" stroke="#f3ece2" stroke-width="0" />
+</svg>
