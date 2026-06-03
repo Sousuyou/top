@@ -3,27 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3f1ec" />
+    <!-- ライト／ダークでブラウザのバー色を切り替え -->
+    <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
     <title>Bar Soutsu ツールズ — TOP</title>
     <meta
       name="description"
-      content="Bar Soutsuの社内Webツール一覧。原価計算・レシピ帳・ジン教本・ジンニュースへの入口です。"
+      content="Bar Soutsuの社内Webツール一覧。原価計算・レシピ帳・ジン教本・クイズ道場・チートシート・ジンニュースへの入口です。"
     />
+
+    <!-- SNS・チャットでURLを共有したときの見栄え（OGP / Twitter Card） -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bar Soutsu" />
+    <meta property="og:title" content="Bar Soutsu ツールズ TOP" />
+    <meta
+      property="og:description"
+      content="原価計算・レシピ帳・ジン教本・クイズ道場・チートシート・ジンニュース。Bar Soutsuの社内ツールの入口です。"
+    />
+    <meta property="og:url" content="https://sousuyou.github.io/top/" />
+    <meta property="og:image" content="https://sousuyou.github.io/top/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bar Soutsu ツールズ TOP" />
+    <meta
+      name="twitter:description"
+      content="原価計算・レシピ帳・ジン教本・クイズ道場・チートシート・ジンニュース。Bar Soutsuの社内ツールの入口です。"
+    />
+    <meta name="twitter:image" content="https://sousuyou.github.io/top/assets/og-image.png" />
+
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.svg" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="has-nav">
-    <!-- 共通ナビ（全ツールで統一） -->
-    <nav class="site-nav">
-      <a class="site-nav-link active" href="https://sousuyou.github.io/top/">TOP</a>
-      <a class="site-nav-link" href="https://sousuyou.github.io/cocktail-cost-tool/">原価計算</a>
-      <a class="site-nav-link" href="https://sousuyou.github.io/cocktail-recipe-book/">レシピ帳</a>
-      <a class="site-nav-link" href="https://sousuyou.github.io/gin-textbook/">ジン教本</a>
-      <a class="site-nav-link" href="https://sousuyou.github.io/gin-textbook/quiz/">クイズ道場</a>
-      <a class="site-nav-link" href="https://sousuyou.github.io/gin-textbook/cheatsheet/">チートシート</a>
-      <a class="site-nav-link" href="https://sousuyou.github.io/gin-news/">ジンニュース</a>
+    <!-- 共通ナビ：中身は nav.js が自動生成（JS無効時はTOPリンクだけ残る） -->
+    <nav class="site-nav" id="site-nav">
+      <a class="site-nav-link" href="https://sousuyou.github.io/top/">TOP</a>
     </nav>
 
     <main class="app-shell">
@@ -110,18 +127,31 @@
         <h2 id="official-title" class="section-label">Official</h2>
         <div class="official-links">
           <a class="official-link" href="https://barsoutsu.com/" target="_blank" rel="noopener noreferrer">
+            <svg class="official-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18" />
+              <path d="M12 3c2.6 2.7 3.9 5.9 3.9 9s-1.3 6.3-3.9 9c-2.6-2.7-3.9-5.9-3.9-9s1.3-6.3 3.9-9z" />
+            </svg>
             <span class="official-eyebrow">Website</span>
             <span class="official-name">公式HP</span>
             <span class="official-go">barsoutsu.com ↗</span>
           </a>
 
           <a class="official-link" href="https://www.instagram.com/barsoutsu/" target="_blank" rel="noopener noreferrer">
+            <svg class="official-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+              <circle cx="12" cy="12" r="4" />
+              <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
             <span class="official-eyebrow">Instagram</span>
             <span class="official-name">公式Instagram</span>
             <span class="official-go">@barsoutsu ↗</span>
           </a>
 
           <a class="official-link" href="https://x.com/BarSoutsu" target="_blank" rel="noopener noreferrer">
+            <svg class="official-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.451-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
+            </svg>
             <span class="official-eyebrow">X (Twitter)</span>
             <span class="official-name">公式X</span>
             <span class="official-go">@BarSoutsu ↗</span>
@@ -134,5 +164,8 @@
         <span>Internal use</span>
       </footer>
     </main>
+
+    <!-- 共通ナビを生成（全ツール共有の単一ファイル） -->
+    <script src="nav.js" defer></script>
   </body>
 </html>

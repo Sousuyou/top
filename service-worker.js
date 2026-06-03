@@ -1,10 +1,12 @@
-const CACHE_NAME = "top-v1";
+const CACHE_NAME = "top-v2";
 const CACHE_FILES = [
   "./",
   "./index.html",
   "./styles.css",
+  "./nav.js",
   "./manifest.json",
   "./assets/icon.svg",
+  "./assets/og-image.png",
 ];
 
 self.addEventListener("install", (event) => {
