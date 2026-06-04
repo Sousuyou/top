@@ -15,13 +15,13 @@
 
   // ここが共通メニューの定義。新ツールを足すときはこの配列に1行追加するだけ。
   var LINKS = [
-    { label: "TOP", path: "top/" },
-    { label: "原価計算", path: "cocktail-cost-tool/" },
-    { label: "レシピ帳", path: "cocktail-recipe-book/" },
-    { label: "ジン教本", path: "gin-textbook/" },
-    { label: "クイズ道場", path: "gin-textbook/quiz/" },
-    { label: "チートシート", path: "gin-textbook/cheatsheet/" },
+    { label: "TOP",        path: "top/" },
     { label: "ジンニュース", path: "gin-news/" },
+    { label: "ジン教本",    path: "gin-textbook/" },
+    { label: "レシピ帳",    path: "cocktail-recipe-book/" },
+    { label: "クイズ道場",  path: "gin-textbook/quiz/" },
+    { label: "チートシート", path: "gin-textbook/cheatsheet/" },
+    { label: "原価計算",    path: "cocktail-cost-tool/" },
   ];
 
   function render() {
