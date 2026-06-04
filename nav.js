@@ -20,7 +20,7 @@
     { label: "ジン教本",    path: "gin-textbook/" },
     { label: "レシピ帳",    path: "cocktail-recipe-book/" },
     { label: "クイズ道場",  path: "gin-textbook/quiz/" },
-    { label: "チートシート", path: "gin-textbook/cheatsheet/" },
+    { label: "早見表",       path: "gin-textbook/cheatsheet/" },
     { label: "原価計算",    path: "cocktail-cost-tool/" },
   ];
 
