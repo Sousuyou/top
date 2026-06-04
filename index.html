@@ -167,5 +167,14 @@
 
     <!-- 共通ナビを生成（全ツール共有の単一ファイル） -->
     <script src="nav.js" defer></script>
+
+    <!-- アプリ化（ホーム画面に追加・オフライン対応） -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("service-worker.js");
+        });
+      }
+    </script>
   </body>
 </html>
