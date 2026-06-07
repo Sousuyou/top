@@ -17,12 +17,25 @@ window.UPDATES = [
 
 (function () {
   "use strict";
-  var MAX = 8;
+  var MAX = 8; // 表示する項目（行）の最大件数
+  var NEW_DAYS = 7; // 直近この日数以内の項目に「NEW」バッジを付ける
 
   function esc(s) {
     return String(s).replace(/[&<>]/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c];
     });
+  }
+
+  // "YYYY-MM-DD" を Date(ローカル0時) に変換。失敗時は null
+  function parseDate(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+
+  // 2つの日付の差（日数）。a, b は Date
+  function diffDays(a, b) {
+    return Math.round((a.getTime() - b.getTime()) / 86400000);
   }
 
   function render() {
@@ -33,13 +46,58 @@ window.UPDATES = [
       el.innerHTML = '<li class="update-empty">更新情報はまだありません。</li>';
       return;
     }
-    el.innerHTML = items
-      .map(function (u) {
+
+    // 基準日（今日0時）と、データ内で最も新しい日付を求める
+    var today = new Date();
+    today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var latestKey = null;
+    items.forEach(function (u) {
+      if (latestKey === null || String(u.date) > latestKey) latestKey = String(u.date);
+    });
+
+    // 表示順（新しい順）を維持したまま、同じ日付ごとにまとめる
+    var groups = [];
+    var indexByDate = {};
+    items.forEach(function (u) {
+      var key = String(u.date);
+      if (!(key in indexByDate)) {
+        indexByDate[key] = groups.length;
+        groups.push({ date: key, items: [] });
+      }
+      groups[indexByDate[key]].items.push(u);
+    });
+
+    // その日付グループに NEW バッジを付けるか判定
+    function isNewGroup(key) {
+      if (key === latestKey) return true; // 最新日付グループは必ずNEW
+      var d = parseDate(key);
+      if (!d) return false;
+      var diff = diffDays(today, d); // 今日との差（日数）
+      return diff >= 0 && diff <= NEW_DAYS; // 直近N日以内
+    }
+
+    el.innerHTML = groups
+      .map(function (g) {
+        var newBadge = isNewGroup(g.date)
+          ? '<span class="update-new" aria-label="新着">NEW</span>'
+          : "";
+        var rows = g.items
+          .map(function (u) {
+            return (
+              '<li class="update-row">' +
+              '<span class="update-tag">' + esc(u.tag) + "</span>" +
+              '<span class="update-text">' + esc(u.text) + "</span>" +
+              "</li>"
+            );
+          })
+          .join("");
         return (
-          '<li class="update-item">' +
-          '<span class="update-date">' + esc(u.date) + "</span>" +
-          '<span class="update-tag">' + esc(u.tag) + "</span>" +
-          '<span class="update-text">' + esc(u.text) + "</span>" +
+          '<li class="update-group">' +
+          '<div class="update-group-head">' +
+          '<span class="update-date">' + esc(g.date) + "</span>" +
+          newBadge +
+          "</div>" +
+          '<ul class="update-rows">' + rows + "</ul>" +
           "</li>"
         );
       })

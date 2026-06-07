@@ -58,7 +58,7 @@
         </div>
         <aside class="hero-panel" aria-label="収録ツール数">
           <span>収録ツール</span>
-          <strong>6</strong>
+          <strong id="tool-count">6</strong>
           <small>Cost / Recipe / Textbook / Quiz / Cheat / News</small>
         </aside>
       </section>
@@ -179,6 +179,24 @@
 
     <!-- 更新情報を生成 -->
     <script src="updates.js" defer></script>
+
+    <!-- 収録ツール数を、ツールカードの実数から自動表示（数字の直し忘れ防止） -->
+    <script>
+      (function () {
+        "use strict";
+        function setCount() {
+          var countEl = document.getElementById("tool-count");
+          if (!countEl) return;
+          var cards = document.querySelectorAll(".tool-grid .tool-card");
+          if (cards.length) countEl.textContent = cards.length;
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", setCount);
+        } else {
+          setCount();
+        }
+      })();
+    </script>
 
     <!-- アプリ化（ホーム画面に追加・オフライン対応） -->
     <script>
