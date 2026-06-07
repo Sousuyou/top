@@ -1,7 +1,7 @@
 // Bar Soutsu ツールズ TOP — Service Worker
 // 更新方針: ページ本体(HTML)とJSONは「ネットワーク優先」で常に最新を取得し、
 //   オフライン時のみキャッシュを使う。画像・CSS・JSは「キャッシュ優先」で高速表示。
-const CACHE_NAME = "top-v8";
+const CACHE_NAME = "top-v9";
 const CACHE_FILES = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const CACHE_FILES = [
   "./nav.js",
   "./updates.js",
   "./search.js",
+  "./boot.js",
   "./manifest.json",
   "./assets/icon.svg",
   "./assets/og-image.png",

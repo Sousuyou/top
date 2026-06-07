@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- セキュリティ: コンテンツの読み込み元を自サイトに限定（万一の不正スクリプト実行を阻止） -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+    />
     <!-- ライト／ダークでブラウザのバー色を切り替え -->
     <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
@@ -195,31 +200,7 @@
     <!-- 全ツール横断検索 -->
     <script src="search.js" defer></script>
 
-    <!-- 収録ツール数を、ツールカードの実数から自動表示（数字の直し忘れ防止） -->
-    <script>
-      (function () {
-        "use strict";
-        function setCount() {
-          var countEl = document.getElementById("tool-count");
-          if (!countEl) return;
-          var cards = document.querySelectorAll(".tool-grid .tool-card");
-          if (cards.length) countEl.textContent = cards.length;
-        }
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", setCount);
-        } else {
-          setCount();
-        }
-      })();
-    </script>
-
-    <!-- アプリ化（ホーム画面に追加・オフライン対応） -->
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("service-worker.js");
-        });
-      }
-    </script>
+    <!-- 収録ツール数の自動表示＋アプリ化（CSP対応のため外部ファイル化） -->
+    <script src="boot.js" defer></script>
   </body>
 </html>
