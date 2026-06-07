@@ -250,6 +250,72 @@ h1 {
   color: var(--text);
 }
 
+/* ===== 更新情報（What's New） ===== */
+.updates-section {
+  padding-top: 22px;
+}
+
+.update-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.update-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.78rem;
+}
+
+.update-item:last-child {
+  border-bottom: 0;
+}
+
+.update-date {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.update-tag {
+  align-self: center;
+  white-space: nowrap;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+
+.update-text {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.update-empty {
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 8px 0;
+}
+
+@media (max-width: 560px) {
+  .update-item {
+    grid-template-columns: auto 1fr;
+    row-gap: 4px;
+  }
+  .update-text {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ===== 公式リンク ===== */
 .official-section {
   padding-top: 26px;

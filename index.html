@@ -62,6 +62,14 @@
         </aside>
       </section>
 
+      <!-- 更新情報（What's New） -->
+      <section class="updates-section" aria-labelledby="updates-title">
+        <h2 id="updates-title" class="section-label">Updates / 更新情報</h2>
+        <ul class="update-list" id="update-list">
+          <li class="update-empty">読み込み中…</li>
+        </ul>
+      </section>
+
       <!-- ツール一覧 -->
       <section class="tool-section" aria-labelledby="tools-title">
         <h2 id="tools-title" class="section-label">Tools</h2>
@@ -167,6 +175,9 @@
 
     <!-- 共通ナビを生成（全ツール共有の単一ファイル） -->
     <script src="nav.js" defer></script>
+
+    <!-- 更新情報を生成 -->
+    <script src="updates.js" defer></script>
 
     <!-- アプリ化（ホーム画面に追加・オフライン対応） -->
     <script>
