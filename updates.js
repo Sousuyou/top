@@ -23,7 +23,8 @@ window.UPDATES = [
 
 (function () {
   "use strict";
-  var MAX = 8; // 表示する項目（行）の最大件数
+  var MAX = 50; // 読み込む項目（行）の最大件数
+  var INITIAL = 3; // 最初に見せる件数（残りは「もっと見る」で展開）
   var NEW_DAYS = 7; // 直近この日数以内の項目に「NEW」バッジを付ける
 
   function esc(s) {
@@ -82,23 +83,30 @@ window.UPDATES = [
       return diff >= 0 && diff <= NEW_DAYS; // 直近N日以内
     }
 
+    var rowIndex = 0; // 全グループ通しの行番号（先頭3件まで初期表示）
     el.innerHTML = groups
       .map(function (g) {
         var newBadge = isNewGroup(g.date)
           ? '<span class="update-new" aria-label="新着">NEW</span>'
           : "";
+        var groupStart = rowIndex; // このグループ先頭の通し行番号
         var rows = g.items
           .map(function (u) {
+            // 先頭 INITIAL 件以降は「もっと見る」で展開する控えめ行にする
+            var extra = rowIndex >= INITIAL ? " is-extra" : "";
+            rowIndex++;
             return (
-              '<li class="update-row">' +
+              '<li class="update-row' + extra + '">' +
               '<span class="update-tag">' + esc(u.tag) + "</span>" +
               '<span class="update-text">' + esc(u.text) + "</span>" +
               "</li>"
             );
           })
           .join("");
+        // グループ全体が初期表示の枠外なら、見出しごと折りたたむ
+        var groupExtra = groupStart >= INITIAL ? " is-extra" : "";
         return (
-          '<li class="update-group">' +
+          '<li class="update-group' + groupExtra + '">' +
           '<div class="update-group-head">' +
           '<span class="update-date">' + esc(g.date) + "</span>" +
           newBadge +
@@ -108,6 +116,33 @@ window.UPDATES = [
         );
       })
       .join("");
+
+    // 「もっと見る」トグル（4件目以降があるときだけ表示）
+    var section = el.closest(".updates-section");
+    var btn = document.getElementById("update-more");
+    var hidden = items.length - INITIAL;
+    if (hidden > 0 && section) {
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.id = "update-more";
+        btn.type = "button";
+        btn.className = "update-more";
+        el.insertAdjacentElement("afterend", btn);
+      }
+      section.classList.add("is-collapsed");
+      function sync() {
+        var collapsed = section.classList.contains("is-collapsed");
+        btn.textContent = collapsed ? "もっと見る（+" + hidden + "件）" : "閉じる";
+        btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      }
+      sync();
+      btn.onclick = function () {
+        section.classList.toggle("is-collapsed");
+        sync();
+      };
+    } else if (btn) {
+      btn.remove();
+    }
   }
 
   if (document.readyState === "loading") {

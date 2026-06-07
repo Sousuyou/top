@@ -65,7 +65,13 @@
 
       <!-- 全ツール横断検索 -->
       <section class="xsearch-section" aria-label="全ツール横断検索">
-        <input type="search" id="xsearch-input" class="xsearch-input" placeholder="🔍 全ツールから探す（ツール名・教本の章・用語）…" autocomplete="off" />
+        <div class="xsearch-field">
+          <svg class="xs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+            <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <input type="search" id="xsearch-input" class="xsearch-input" placeholder="ツール・教本の章・用語を検索" autocomplete="off" />
+        </div>
         <div id="xsearch-results" class="xsearch-results" style="display:none"></div>
       </section>
 
