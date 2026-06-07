@@ -63,6 +63,12 @@
         </aside>
       </section>
 
+      <!-- 全ツール横断検索 -->
+      <section class="xsearch-section" aria-label="全ツール横断検索">
+        <input type="search" id="xsearch-input" class="xsearch-input" placeholder="🔍 全ツールから探す（ツール名・教本の章・用語）…" autocomplete="off" />
+        <div id="xsearch-results" class="xsearch-results" style="display:none"></div>
+      </section>
+
       <!-- 更新情報（What's New） -->
       <section class="updates-section" aria-labelledby="updates-title">
         <h2 id="updates-title" class="section-label">Updates / 更新情報</h2>
@@ -179,6 +185,9 @@
 
     <!-- 更新情報を生成 -->
     <script src="updates.js" defer></script>
+
+    <!-- 全ツール横断検索 -->
+    <script src="search.js" defer></script>
 
     <!-- 収録ツール数を、ツールカードの実数から自動表示（数字の直し忘れ防止） -->
     <script>

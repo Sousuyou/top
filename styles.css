@@ -461,3 +461,77 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== 全ツール横断検索 ===== */
+.xsearch-section {
+  margin: 1.6rem 0 0.4rem;
+  position: relative;
+}
+.xsearch-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--ink, #1a1a1a);
+  background: var(--surface, #fff);
+  border: 2px solid var(--border, #cfcabb);
+  border-radius: 4px;
+  outline: none;
+}
+.xsearch-input:focus {
+  border-color: var(--green, #4a7c59);
+}
+.xsearch-results {
+  margin-top: 0.4rem;
+  border: 2px solid var(--border, #cfcabb);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  overflow: hidden;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.xs-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.7rem;
+  align-items: baseline;
+  padding: 0.7rem 1rem;
+  text-decoration: none;
+  color: var(--ink, #1a1a1a);
+  border-bottom: 1px solid var(--border, #e5e1d6);
+}
+.xs-item:last-child {
+  border-bottom: none;
+}
+.xs-item:hover {
+  background: var(--surface-alt, #f3f0e8);
+}
+.xs-type {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--on-accent, #fff);
+  background: var(--green, #4a7c59);
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.xs-label {
+  font-weight: 600;
+}
+.xs-sub {
+  grid-column: 2;
+  font-size: 0.82rem;
+  color: var(--muted, #777);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xs-empty {
+  padding: 0.9rem 1rem;
+  color: var(--muted, #777);
+  font-size: 0.9rem;
+}
