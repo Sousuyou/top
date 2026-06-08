@@ -16,6 +16,7 @@
   // ここが共通メニューの定義。新ツールを足すときはこの配列に1行追加するだけ。
   var LINKS = [
     { label: "TOP",        path: "top/" },
+    { label: "在庫カタログ", path: "gin-stock/" },
     { label: "ジンニュース", path: "gin-news/" },
     { label: "ジン教本",    path: "gin-textbook/" },
     { label: "レシピ帳",    path: "cocktail-recipe-book/" },
