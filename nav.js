@@ -13,6 +13,41 @@
 
   var BASE = "https://sousuyou.github.io/";
 
+  // ── 自動更新（全ツール共通）────────────────────────────────────────────
+  // PWA/Service Workerの古いキャッシュで最新が出ない問題への対策。
+  //  ・新しいSWが有効化（制御を奪取）したら、画面を1回だけ自動リロードして最新へ。
+  //  ・起動時／アプリに戻ってきた時に更新チェック（reg.update）を行い、
+  //    新版があれば即時切替→リロードへつなげる（各SWは skipWaiting 済み）。
+  //  ※この1か所だけで、nav.jsを読む全ツールが自動更新対応になる。
+  (function setupAutoUpdate() {
+    if (!("serviceWorker" in navigator)) return;
+    var sw = navigator.serviceWorker;
+    var hadController = !!sw.controller; // 初回インストール時(=null)はリロードしない
+    var reloaded = false;
+
+    sw.addEventListener("controllerchange", function () {
+      if (reloaded || !hadController) return;
+      reloaded = true;
+      window.location.reload();
+    });
+
+    function checkUpdate() {
+      if (!sw.getRegistrations) return;
+      sw.getRegistrations().then(function (regs) {
+        regs.forEach(function (reg) {
+          if (reg && reg.update) reg.update().catch(function () {});
+        });
+      }).catch(function () {});
+    }
+
+    checkUpdate(); // 起動時
+    // PWAは再起動でページが再読込されないことがあるため、復帰時に更新チェック
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") checkUpdate();
+    });
+    window.addEventListener("focus", checkUpdate);
+  })();
+
   // ここが共通メニューの定義。新ツールを足すときはこの配列に1行追加するだけ。
   var LINKS = [
     { label: "TOP",        path: "top/" },
