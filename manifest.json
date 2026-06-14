@@ -3,7 +3,7 @@
   "short_name": "Bar Soutsu",
   "description": "Bar Soutsuの社内Webツール一覧。ジン在庫カタログ・原価計算・レシピ帳・ジン教本・クイズ道場・早見表・ジンニュースへの入口です。",
   "start_url": "./index.html",
-  "scope": "/",
+  "scope": "/top/",
   "id": "/top/",
   "display": "standalone",
   "background_color": "#14130f",
