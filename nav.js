@@ -26,9 +26,26 @@
     { label: "投稿メーカー", path: "post-maker/" },
   ];
 
+  // スマホ表示ではナビを2段（グリッド）に折り返し、横スクロールせず全タブを見せる。
+  // ※共通の単一ファイルなので、ここを直すと全ツールのナビに反映される。
+  //   CSP（style-src 'self' 'unsafe-inline'）下なので<style>の注入は許可される。
+  function injectStyle() {
+    if (document.getElementById("site-nav-style")) return;
+    var css =
+      "@media (max-width:640px){" +
+      "#site-nav.site-nav{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));overflow:visible;}" +
+      "#site-nav .site-nav-link{padding:0 4px;min-height:36px;font-size:0.58rem;letter-spacing:0;justify-content:center;text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}" +
+      "}";
+    var s = document.createElement("style");
+    s.id = "site-nav-style";
+    s.textContent = css;
+    document.head.appendChild(s);
+  }
+
   function render() {
     var mount = document.getElementById("site-nav");
     if (!mount) return;
+    injectStyle();
 
     var here = window.location.href;
 
