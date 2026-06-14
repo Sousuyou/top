@@ -1,7 +1,8 @@
 // Bar Soutsu ツールズ TOP — Service Worker
-// 更新方針: ページ本体(HTML)とJSONは「ネットワーク優先」で常に最新を取得し、
-//   オフライン時のみキャッシュを使う。画像・CSS・JSは「キャッシュ優先」で高速表示。
-const CACHE_NAME = "top-v18";
+// 更新方針: ページ本体(HTML)・JSON・JSは「ネットワーク優先」で常に最新を取得し、
+//   オフライン時のみキャッシュを使う。画像・CSSは「キャッシュ優先」で高速表示。
+//   ※JSをネット優先にしたのは、nav.js等の更新を版上げなしで確実に反映するため。
+const CACHE_NAME = "top-v19";
 const CACHE_FILES = [
   "./",
   "./index.html",
@@ -50,7 +51,8 @@ self.addEventListener("fetch", (event) => {
   const fresh =
     req.mode === "navigate" ||
     accept.includes("text/html") ||
-    url.pathname.endsWith(".json");
+    url.pathname.endsWith(".json") ||
+    url.pathname.endsWith(".js");
 
   if (fresh) {
     // ネットワーク優先（最新を表示。失敗時はキャッシュ）
