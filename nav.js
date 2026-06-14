@@ -23,6 +23,7 @@
     { label: "クイズ道場",  path: "gin-textbook/quiz/" },
     { label: "早見表",       path: "gin-textbook/cheatsheet/" },
     { label: "原価計算",    path: "cocktail-cost-tool/" },
+    { label: "投稿メーカー", path: "post-maker/" },
   ];
 
   function render() {

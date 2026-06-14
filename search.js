@@ -16,6 +16,7 @@
     { name: "クイズ道場", url: BASE + "gin-textbook/quiz/", kw: "クイズ テスト 問題 道場" },
     { name: "早見表", url: BASE + "gin-textbook/cheatsheet/", kw: "早見表 チートシート 一覧" },
     { name: "ジンニュース", url: BASE + "gin-news/", kw: "ニュース 最新 新商品" },
+    { name: "営業投稿メーカー", url: BASE + "post-maker/", kw: "投稿 営業 LINE ライン 文章 告知 おすすめ 挨拶 メーカー 集客 SNS" },
   ];
 
   function esc(s) {
