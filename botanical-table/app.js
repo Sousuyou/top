@@ -11,6 +11,53 @@
   var COMPONENTS = BOTANICAL_DATA.components || {};
   var BOTANICALS = BOTANICAL_DATA.botanicals || [];
   var PLANT_FAMILIES = BOTANICAL_DATA.families || {};
+  var STOCK_DATA_URLS = ["/gin-stock/gins.json", "/gin-stock-repo/gins.json", "../../gin-stock-repo/gins.json"];
+  var usageCounts = {};
+  var STOCK_BOTANICAL_ALIASES = {
+    "ジュニパー": "ジュニパーベリー",
+    "コリアンダー": "コリアンダーシード",
+    "アンジェリカ": "アンジェリカルート",
+    "リコリスルート": "リコリス",
+    "オリス": "オリスルート",
+    "アイリス": "オリスルート",
+    "レモン": "レモンピール",
+    "オレンジ": "オレンジピール",
+    "グレープフルーツ": "グレープフルーツピール",
+    "ライム": "ライムピール",
+    "ベルガモット": "ベルガモットピール",
+    "アニス": "アニスシード",
+    "フェンネル": "フェンネルシード",
+    "キャラウェイ": "キャラウェイシード",
+    "カッシア": "カシア",
+    "カシアバーク": "カシア",
+    "カッシアバーク": "カシア",
+    "クベブ": "クベブペッパー",
+    "キュベブ": "クベブペッパー",
+    "クベバ": "クベブペッパー",
+    "クベバベリー": "クベブペッパー",
+    "黒胡椒": "ブラックペッパー",
+    "グリーンカルダモン": "カルダモン",
+    "カルダモンシード": "カルダモン",
+    "ベイリーフ": "ローレル",
+    "ローリエ": "ローレル",
+    "緑茶": "煎茶",
+    "アールグレイ": "紅茶",
+    "バラ": "ローズ",
+    "ブルガリアンローズ": "ローズ",
+    "メドウスウィート": "メドウスイート",
+    "シーベリー": "シーバックソーン",
+    "ストロベリー": "苺",
+    "イチゴ": "苺",
+    "紫蘇": "青紫蘇",
+    "柚子ピール": "柚子",
+    "ゆず": "柚子",
+    "コースタルタイム": "タイム"
+  };
+  var STOCK_BOTANICAL_JUNK = {
+    "不明": 1, "公式情報なし": 1, "非公開": 1, "情報なし": 1, "その他": 1,
+    "スパイス": 1, "ハーブ": 1, "各種": 1, "数種": 1, "複数": 1, "各種ボタニカル": 1,
+    "シトラス": 1, "柑橘": 1, "柑橘ピール": 1, "核果": 1, "ストーンフルーツ": 1
+  };
 
   var els = {};
   var selected = loadSelected();
@@ -29,6 +76,66 @@
   function norm(s) {
     return String(s == null ? "" : s).normalize("NFKC").toLowerCase().replace(/[ァ-ヶ]/g, function (ch) {
       return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+    });
+  }
+
+  function compactName(name) {
+    return norm(name).replace(/[ー\s・･]/g, "");
+  }
+
+  function stockTokenToBotanical(name) {
+    if (!name || STOCK_BOTANICAL_JUNK[name]) return null;
+    var wanted = STOCK_BOTANICAL_ALIASES[name] || name;
+    if (name.indexOf("ジュニパー") >= 0) wanted = "ジュニパーベリー";
+    var key = compactName(wanted);
+    for (var i = 0; i < BOTANICALS.length; i++) {
+      if (compactName(BOTANICALS[i].name) === key) return BOTANICALS[i].name;
+    }
+    for (var j = 0; j < BOTANICALS.length; j++) {
+      var bkey = compactName(BOTANICALS[j].name);
+      if (bkey.indexOf(key) >= 0 || key.indexOf(bkey) >= 0) return BOTANICALS[j].name;
+    }
+    return null;
+  }
+
+  function stockBotTokens(text) {
+    if (!text) return [];
+    var parts = String(text).split(/[、,／/・\n]+/);
+    var seen = {}, out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].replace(/（[^）]*）/g, "").replace(/\([^)]*\)/g, "").trim();
+      p = p.replace(/(など|等|ほか|他)$/, "").trim();
+      var name = stockTokenToBotanical(p);
+      if (name && !seen[name]) {
+        seen[name] = 1;
+        out.push(name);
+      }
+    }
+    return out;
+  }
+
+  function fetchStockJson(index) {
+    if (index >= STOCK_DATA_URLS.length) return Promise.reject(new Error("stock data not found"));
+    return fetch(STOCK_DATA_URLS[index], { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).catch(function () {
+      return fetchStockJson(index + 1);
+    });
+  }
+
+  function loadStockUsage() {
+    fetchStockJson(0).then(function (data) {
+      var counts = {};
+      ((data && data.gins) || []).forEach(function (g) {
+        stockBotTokens(g.botanicals).forEach(function (name) {
+          counts[name] = (counts[name] || 0) + 1;
+        });
+      });
+      usageCounts = counts;
+      renderList();
+    }).catch(function () {
+      renderList();
     });
   }
 
@@ -107,26 +214,10 @@
   }
 
   function sortBotanicals(rows) {
-    var mode = els.sortFilter.value;
     return rows.slice().sort(function (a, b) {
-      if (mode === "selected") {
-        var sa = selected.has(a.name) ? 1 : 0;
-        var sb = selected.has(b.name) ? 1 : 0;
-        if (sb !== sa) return sb - sa;
-        return compareReading(a, b);
-      }
-      if (mode === "family") {
-        return plantFamily(a).localeCompare(plantFamily(b), "ja") || compareReading(a, b);
-      }
-      if (mode === "group") {
-        return a.group.localeCompare(b.group, "ja") || compareReading(a, b);
-      }
-      if (mode === "part") {
-        return a.part.localeCompare(b.part, "ja") || compareReading(a, b);
-      }
-      if (mode === "components-desc") {
-        return b.components.length - a.components.length || compareReading(a, b);
-      }
+      var au = usageCounts[a.name] || 0;
+      var bu = usageCounts[b.name] || 0;
+      if (bu !== au) return bu - au;
       return compareReading(a, b);
     });
   }
@@ -153,6 +244,7 @@
     els.botanicalList.innerHTML = rows.map(function (b) {
       var on = selected.has(b.name);
       var family = plantFamily(b);
+      var usage = usageCounts[b.name] || 0;
       return '<article class="botanical-card' + (on ? " is-selected" : "") + '">' +
         '<div class="botanical-head">' +
           '<div><h3 class="botanical-name">' + esc(b.name) + '</h3><p class="latin">' + esc(b.latin) + '</p></div>' +
@@ -162,6 +254,7 @@
           '<button type="button" class="family-btn" data-family="' + esc(family) + '">' + esc(family) + '</button>' +
           '<span class="meta">部位: ' + esc(b.part) + '</span>' +
           '<span class="meta">成分: ' + b.components.length + '</span>' +
+          '<span class="meta">在庫: ' + usage + '</span>' +
         '</div>' +
         '<p class="aroma">' + esc(b.aroma) + '</p>' +
         '<p class="role">' + esc(b.role) + '</p>' +
@@ -261,7 +354,6 @@
     });
     els.groupFilter.addEventListener("change", renderList);
     els.familyFilter.addEventListener("change", renderList);
-    els.sortFilter.addEventListener("change", renderList);
     els.componentSort.addEventListener("change", renderComponents);
     els.botanicalList.addEventListener("click", function (e) {
       var familyBtn = e.target.closest("[data-family]");
@@ -285,7 +377,6 @@
       els.search.value = "";
       els.groupFilter.value = "";
       els.familyFilter.value = "";
-      els.sortFilter.value = "reading";
       renderList();
     });
     els.clearSelection.addEventListener("click", function () {
@@ -300,7 +391,6 @@
       search: $("search"),
       groupFilter: $("group-filter"),
       familyFilter: $("family-filter"),
-      sortFilter: $("sort-filter"),
       componentSort: $("component-sort"),
       resultCount: $("result-count"),
       botanicalList: $("botanical-list"),
@@ -316,6 +406,7 @@
     applyInitialQuery();
     bind();
     render();
+    loadStockUsage();
   }
 
   if (document.readyState === "loading") {
