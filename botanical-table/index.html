@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- セキュリティ: 外部スクリプトは使わず、共通ナビとテーマだけ同一GitHub Pages内から読み込む。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+    />
+    <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
+    <title>ボタニカル表｜Bar Soutsu</title>
+    <meta
+      name="description"
+      content="ジンに使われる代表的なボタニカルと香気成分を検索・比較できるBar Soutsuの社内ツールです。"
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bar Soutsu" />
+    <meta property="og:title" content="ボタニカル表｜Bar Soutsu" />
+    <meta property="og:description" content="ジンのボタニカルと香気成分を検索・比較できる社内ツールです。" />
+    <meta property="og:url" content="https://sousuyou.github.io/top/botanical-table/" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="https://sousuyou.github.io/top/theme.css" />
+  </head>
+  <body class="has-nav">
+    <nav class="site-nav" id="site-nav">
+      <a class="site-nav-link" href="https://sousuyou.github.io/top/">TOP</a>
+    </nav>
+    <script src="https://sousuyou.github.io/top/nav.js" defer></script>
+
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="brand-mark">Bar Soutsu</p>
+          <p class="eyebrow">Botanical Table / Aroma Components</p>
+          <h1 id="page-title">ボタニカル表</h1>
+          <p class="lead">
+            ジンでよく使われるボタニカルを、香りの系統・植物の科・使う部位・主な香気成分で引ける表です。
+            複数選ぶと、共通する成分や重なりやすい香りの軸を一覧で確認できます。
+          </p>
+        </div>
+        <div class="hero-metrics" aria-label="データ概要">
+          <div>
+            <span>Botanicals</span>
+            <strong id="metric-botanical-count">--</strong>
+          </div>
+          <div>
+            <span>Selected</span>
+            <strong id="metric-selected-count">0</strong>
+          </div>
+          <div>
+            <span>Components</span>
+            <strong id="metric-component-count">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="tool-panel" aria-label="ボタニカル検索と選択">
+        <div class="filter-grid">
+          <label class="field">
+            <span>検索</span>
+            <input id="search" type="search" autocomplete="off" placeholder="例：ジュニパー / リナロール / 柚子 / スパイス" />
+          </label>
+          <label class="field">
+            <span>分類</span>
+            <select id="group-filter"></select>
+          </label>
+          <label class="field">
+            <span>科名</span>
+            <select id="family-filter"></select>
+          </label>
+          <label class="field">
+            <span>並び替え</span>
+            <select id="sort-filter">
+              <option value="reading">名前順</option>
+              <option value="family">科名順</option>
+              <option value="group">分類順</option>
+              <option value="part">部位順</option>
+              <option value="components-desc">成分数が多い順</option>
+              <option value="selected">選択中を上へ</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>表示</span>
+            <select id="view-filter">
+              <option value="all">すべて表示</option>
+              <option value="selected">選択中だけ</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="secondary" id="reset-filters">条件をクリア</button>
+          <button type="button" id="clear-selection">選択をクリア</button>
+        </div>
+
+        <div class="result-line">
+          <span id="result-count">読み込み中...</span>
+          <span id="save-state">選択はこの端末に保存されます</span>
+        </div>
+      </section>
+
+      <section class="analysis-layout" aria-label="選択したボタニカルの香気成分">
+        <div class="selected-panel">
+          <h2 class="section-label">Selected Botanicals</h2>
+          <div id="selected-list" class="selected-list"></div>
+        </div>
+
+        <div class="component-panel">
+          <div class="panel-head">
+            <h2 class="section-label">Combined Aroma Components</h2>
+            <div class="component-controls">
+              <span id="component-note">ボタニカルを選択してください</span>
+              <select id="component-sort" aria-label="香気成分の並び替え">
+                <option value="overlap">重なりが多い順</option>
+                <option value="name">成分名順</option>
+                <option value="family">系統順</option>
+              </select>
+            </div>
+          </div>
+          <div id="family-summary" class="family-summary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>香気成分</th>
+                  <th>系統</th>
+                  <th>香りの目安</th>
+                  <th>由来ボタニカル</th>
+                </tr>
+              </thead>
+              <tbody id="component-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="botanical-section" aria-labelledby="botanical-list-title">
+        <h2 id="botanical-list-title" class="section-label">Botanical List</h2>
+        <div id="botanical-list" class="botanical-list"></div>
+      </section>
+
+      <section class="note-band" aria-label="データの注意">
+        <p>
+          香気成分は代表例です。品種・産地・乾燥状態・抽出方法・カット位置で実際の香りは変わります。
+          この表はレシピ設計やスタッフ説明の「当たりをつける」ための実務メモとして使います。
+        </p>
+      </section>
+
+      <footer class="app-footer">
+        <span>Bar Soutsu｜ボタニカル表</span>
+        <span>社内ツール</span>
+      </footer>
+    </main>
+
+    <script src="boot.js" defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 {
   "name": "Bar Soutsu ツールズ TOP",
   "short_name": "Bar Soutsu",
-  "description": "Bar Soutsuの社内Webツール一覧。ジン在庫カタログ・原価計算・レシピ帳・ジン教本・クイズ道場・早見表・ジンニュースへの入口です。",
+  "description": "Bar Soutsuの社内Webツール一覧。ジン在庫カタログ・ボタニカル表・原価計算・レシピ帳・ジン教本・クイズ道場・早見表・ジンニュースへの入口です。",
   "start_url": "./index.html",
   "scope": "/top/",
   "id": "/top/",

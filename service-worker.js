@@ -2,7 +2,7 @@
 // 更新方針: ページ本体(HTML)・JSON・JSは「ネットワーク優先」で常に最新を取得し、
 //   オフライン時のみキャッシュを使う。画像・CSSは「キャッシュ優先」で高速表示。
 //   ※JSをネット優先にしたのは、nav.js等の更新を版上げなしで確実に反映するため。
-const CACHE_NAME = "top-v19";
+const CACHE_NAME = "top-v20";
 const CACHE_FILES = [
   "./",
   "./index.html",

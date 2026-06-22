@@ -10,6 +10,7 @@
 
   var TOOLS = [
     { name: "ジン在庫カタログ", url: BASE + "gin-stock/", kw: "在庫 カタログ 銘柄 ボタニカル 産地 国 度数 ジン 一覧 ストック" },
+    { name: "ボタニカル表", url: BASE + "top/botanical-table/", kw: "ボタニカル 香気成分 香り 成分 テルペン リモネン ピネン リナロール ジン 植物 素材 比較" },
     { name: "カクテル原価計算", url: BASE + "cocktail-cost-tool/", kw: "原価 コスト 値段 価格 原価率 売価" },
     { name: "カクテルレシピ帳", url: BASE + "cocktail-recipe-book/", kw: "レシピ カクテル 作り方 ジン" },
     { name: "ジン教本", url: BASE + "gin-textbook/", kw: "教本 学習 勉強 知識" },

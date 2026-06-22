@@ -52,6 +52,7 @@
   var LINKS = [
     { label: "TOP",        path: "top/" },
     { label: "在庫カタログ", path: "gin-stock/" },
+    { label: "ボタニカル表", path: "top/botanical-table/" },
     { label: "ジンニュース", path: "gin-news/" },
     { label: "ジン教本",    path: "gin-textbook/" },
     { label: "レシピ帳",    path: "cocktail-recipe-book/" },
