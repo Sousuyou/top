@@ -367,6 +367,14 @@
     }).join("");
   }
 
+  function applyInitialQuery() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var q = params.get("q");
+      if (q) els.search.value = q;
+    } catch (e) {}
+  }
+
   function compareReading(a, b) {
     return (a.reading || a.name).localeCompare(b.reading || b.name, "ja");
   }
@@ -400,11 +408,9 @@
     var q = norm(els.search.value.trim());
     var group = els.groupFilter.value;
     var family = els.familyFilter.value;
-    var view = els.viewFilter.value;
     return sortBotanicals(BOTANICALS.filter(function (b) {
       if (group && b.group !== group) return false;
       if (family && plantFamily(b) !== family) return false;
-      if (view === "selected" && !selected.has(b.name)) return false;
       if (q && botanicalHay(b).indexOf(q) < 0) return false;
       return true;
     }));
@@ -468,7 +474,6 @@
 
   function renderSelected() {
     var items = selectedBotanicals();
-    els.metricSelected.textContent = String(items.length);
     if (!items.length) {
       els.selectedList.innerHTML = '<p class="empty">ボタニカルカードの「選択する」を押すと、ここに並びます。</p>';
       return;
@@ -481,7 +486,6 @@
 
   function renderComponents() {
     var rows = aggregateComponents();
-    els.metricComponent.textContent = String(rows.length);
     els.componentNote.textContent = selected.size
       ? selected.size + "種のボタニカルから " + rows.length + "件の成分を集計"
       : "ボタニカルを選択してください";
@@ -531,7 +535,6 @@
     els.groupFilter.addEventListener("change", renderList);
     els.familyFilter.addEventListener("change", renderList);
     els.sortFilter.addEventListener("change", renderList);
-    els.viewFilter.addEventListener("change", renderList);
     els.componentSort.addEventListener("change", renderComponents);
     els.botanicalList.addEventListener("click", function (e) {
       var familyBtn = e.target.closest("[data-family]");
@@ -556,7 +559,6 @@
       els.groupFilter.value = "";
       els.familyFilter.value = "";
       els.sortFilter.value = "reading";
-      els.viewFilter.value = "all";
       renderList();
     });
     els.clearSelection.addEventListener("click", function () {
@@ -572,7 +574,6 @@
       groupFilter: $("group-filter"),
       familyFilter: $("family-filter"),
       sortFilter: $("sort-filter"),
-      viewFilter: $("view-filter"),
       componentSort: $("component-sort"),
       resultCount: $("result-count"),
       botanicalList: $("botanical-list"),
@@ -582,13 +583,10 @@
       componentNote: $("component-note"),
       resetFilters: $("reset-filters"),
       clearSelection: $("clear-selection"),
-      metricBotanical: $("metric-botanical-count"),
-      metricSelected: $("metric-selected-count"),
-      metricComponent: $("metric-component-count")
     };
-    els.metricBotanical.textContent = String(BOTANICALS.length);
     fillGroups();
     fillFamilies();
+    applyInitialQuery();
     bind();
     render();
   }

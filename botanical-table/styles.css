@@ -100,10 +100,6 @@ select {
 }
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
-  gap: 18px;
-  align-items: stretch;
   padding-bottom: 18px;
   border-bottom: 2px solid var(--line-strong);
 }
@@ -140,34 +136,6 @@ h1 {
   line-height: 1.75;
 }
 
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid var(--line-strong);
-  background: var(--panel-soft);
-}
-
-.hero-metrics div {
-  min-width: 0;
-  padding: 16px 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  border-right: 1px solid var(--line);
-}
-.hero-metrics div:last-child { border-right: 0; }
-.hero-metrics span {
-  color: var(--muted);
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.hero-metrics strong {
-  font-size: clamp(1.6rem, 4vw, 2.45rem);
-  line-height: 1.1;
-}
-
 .tool-panel,
 .selected-panel,
 .component-panel,
@@ -183,7 +151,7 @@ h1 {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 1.5fr) repeat(4, minmax(130px, 1fr));
+  grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(140px, 1fr));
   gap: 10px;
 }
 
@@ -505,7 +473,6 @@ th {
 }
 
 @media (max-width: 900px) {
-  .hero,
   .analysis-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -520,12 +487,6 @@ th {
 @media (max-width: 640px) {
   .site-nav { width: calc(100% - 12px); margin: 8px auto 0; }
   .app-shell { width: calc(100% - 12px); padding: 16px; }
-  .hero-metrics { grid-template-columns: 1fr; }
-  .hero-metrics div {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .hero-metrics div:last-child { border-bottom: 0; }
   .filter-grid,
   .botanical-list {
     grid-template-columns: 1fr;
