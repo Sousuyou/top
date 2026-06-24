@@ -69,8 +69,8 @@
     if (document.getElementById("site-nav-style")) return;
     var css =
       "@media (max-width:640px){" +
-      "#site-nav.site-nav{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));overflow:visible;}" +
-      "#site-nav .site-nav-link{padding:0 4px;min-height:36px;font-size:0.58rem;letter-spacing:0;justify-content:center;text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}" +
+      "#site-nav.site-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;}" +
+      "#site-nav .site-nav-link{box-sizing:border-box;min-width:0;padding:0 2px;min-height:36px;font-size:0.56rem;letter-spacing:0;justify-content:center;text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}" +
       "}";
     var s = document.createElement("style");
     s.id = "site-nav-style";
