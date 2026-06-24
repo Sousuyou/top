@@ -1,6 +1,6 @@
 // Bar Soutsu ボタニカル表 Service Worker
 // HTML/JS/JSONはネットワーク優先、CSS/画像はキャッシュ優先。
-var CACHE = "soutsu-botanical-table-v8";
+var CACHE = "soutsu-botanical-table-v9";
 var ASSETS = [
   "./",
   "./index.html",
