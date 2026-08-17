@@ -158,6 +158,9 @@
       .cal-date { font-size: 12px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
       .cal-date.sat { color: var(--blue); } .cal-date.sun { color: var(--red); }
       .cal-check { color: var(--gold); font-weight: 900; }
+      .cal-cnt { font-size: 9.5px; font-weight: 800; border-radius: 999px; padding: 0 5px; line-height: 15px; }
+      .cal-cnt.c1 { background: var(--gold-soft); color: var(--gold); border: 1px solid var(--gold); }
+      .cal-cnt.c2 { background: var(--green-soft); color: var(--green); }
       .chip { font-size: 10px; line-height: 1.35; border-radius: 5px; padding: 1px 5px; background: var(--panel-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid var(--line); }
       .chip.mine { background: var(--green-soft); color: var(--green); font-weight: 700; }
       .chip.confirmed { border-left-color: var(--green); }
@@ -237,6 +240,15 @@
       .mrow .m-name { flex: 1; min-width: 110px; }
       .mrow .m-wagewrap { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
       .mrow .m-wage { width: 84px; }
+
+      /* ── 個人別サマリー ── */
+      .summary-card { padding: 14px 16px; }
+      .sum-head { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+      .sum-row { display: flex; gap: 10px; }
+      .sum-tile { flex: 1; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; }
+      .sum-n { font-size: 19px; font-weight: 800; }
+      .sum-n small { font-size: 12px; font-weight: 700; margin-left: 1px; }
+      .sum-l { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
       /* ── 接続・同期 UI ── */
       .conn-row { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; }
@@ -344,6 +356,9 @@
           </div>
           <div class="hint" id="editHint"></div>
         </div>
+
+        <!-- 個人別サマリー（今月のあなた） -->
+        <div class="card summary-card" id="summaryCard"></div>
 
         <!-- 希望・備考欄 -->
         <div class="card">
@@ -748,6 +763,28 @@
         return { total: normal + late, normal: normal, late: late, gross: gross, brk: rec.break || 0 };
       }
       function hoursOf(rec) { return splitHours(rec).total; }
+      // 個人別サマリー：表示中の月の「出勤回数・合計実働・深夜」を1人分集計
+      function monthStatsFor(sid) {
+        var d = focusDate(), y = d.getFullYear(), m = d.getMonth();
+        var days = new Date(y, m + 1, 0).getDate(), shifts = loadShifts();
+        var cnt = 0, total = 0, late = 0;
+        for (var n = 1; n <= days; n++) {
+          var rec = shifts[iso(new Date(y, m, n))]; rec = rec && rec[sid];
+          if (rec && !rec.off) { var sp = splitHours(rec); if (sp.total > 0) { cnt++; total += sp.total; late += sp.late; } }
+        }
+        return { cnt: cnt, total: total, late: late, ym: (m + 1) };
+      }
+      function renderSummary() {
+        if (!currentUser) return;
+        var st = monthStatsFor(currentUser.id);
+        document.getElementById("summaryCard").innerHTML =
+          "<div class='sum-head'>📊 " + st.ym + "月のあなた（" + currentUser.name + " さん）</div>" +
+          "<div class='sum-row'>" +
+            "<div class='sum-tile'><div class='sum-n'>" + st.cnt + "<small>回</small></div><div class='sum-l'>出勤</div></div>" +
+            "<div class='sum-tile'><div class='sum-n'>" + fmtDur(st.total) + "</div><div class='sum-l'>合計実働</div></div>" +
+            "<div class='sum-tile'><div class='sum-n'>" + (st.late > 0 ? fmtDur(st.late) : "—") + "</div><div class='sum-l'>うち深夜</div></div>" +
+          "</div>";
+      }
 
       // ═══════════════ ログイン ═══════════════
       function renderLogin() {
@@ -820,6 +857,7 @@
         }
 
         renderDeadline();
+        renderSummary();
         renderNotes();
         updateConnBadge();
 
@@ -881,15 +919,17 @@
           var dowIdx = (date.getDay() + 6) % 7;
           var dcls = dowIdx === 5 ? "sat" : dowIdx === 6 ? "sun" : "";
           var sel = selectMode && selectedDays[k];
-          var chips = "";
+          var chips = "", cnt = 0;
           workers().forEach(function (p) {
             var rec = shifts[k] && shifts[k][p.id]; if (!rec) return;
             var mine = currentUser.id === p.id ? " mine" : "";
             if (rec.off) chips += "<div class='chip off" + mine + "'>" + p.name + " 休</div>";
-            else chips += "<div class='chip " + rec.status + mine + "'>" + p.name + " " + rec.start.slice(0, 5) + "〜" + rec.end.slice(0, 5) + "</div>";
+            else { cnt++; chips += "<div class='chip " + rec.status + mine + "'>" + p.name + " " + rec.start.slice(0, 5) + "〜" + rec.end.slice(0, 5) + "</div>"; }
           });
+          // 人数チェック：出勤者の人数を色分けで表示（1人=注意ゴールド／2人以上=緑）
+          var cntBadge = cnt > 0 ? "<span class='cal-cnt c" + (cnt === 1 ? "1" : "2") + "'>" + cnt + "人</span>" : "";
           html += "<div class='cal-cell" + (sel ? " selected" : "") + "' data-date='" + k + "'>" +
-            "<div class='cal-date " + dcls + "'><span>" + n + "</span>" + (sel ? "<span class='cal-check'>✓</span>" : "") + "</div>" +
+            "<div class='cal-date " + dcls + "'><span>" + n + "</span>" + (sel ? "<span class='cal-check'>✓</span>" : cntBadge) + "</div>" +
             chips + "</div>";
         }
         cal.innerHTML = html;
