@@ -483,7 +483,8 @@
       ];
       // メンバーは管理画面から編集できるよう保存領域から読み込む（無ければ初期メンバー）
       var STAFF = store.read("demo_staff", null) || DEFAULT_STAFF.map(function (x) { return Object.assign({}, x); });
-      function saveStaff() { store.write("demo_staff", STAFF); }
+      // 端末キャッシュ(demo_staff)には時給を残さない（給料はPIN解錠時のみメモリに持つ／平文保存を防ぐ）
+      function saveStaff() { store.write("demo_staff", STAFF.map(function (p) { return { id: p.id, name: p.name, role: p.role, worker: p.worker, owner: p.owner, wage: 0 }; })); }
       var _idSeq = 1;
       function newMemberId() { return "m" + STAFF.length + "_" + (_idSeq++); }
       var DOW = ["月", "火", "水", "木", "金", "土", "日"];
@@ -509,10 +510,14 @@
       function api(action, payload) {
         if (!GAS_URL) return Promise.reject(new Error("未接続"));
         var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
-        return fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: body }).then(function (r) { return r.json(); });
+        var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+        var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 20000) : null;  // 20秒で打ち切り（通信の張り付き防止）
+        return fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: body, signal: ctrl ? ctrl.signal : undefined })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { if (timer) clearTimeout(timer); return j; }, function (e) { if (timer) clearTimeout(timer); throw e; });
       }
       var pendingPush = 0;   // 送信中の書き込み件数（更新の取りこぼし防止に使う）
-      var retryQueue = [];   // 送信失敗ぶんを貯めて、更新時に自動再送
+      var retryQueue = [];   // 送信失敗ぶんを貯めて自動再送（{action,payload}を保持）
       function pushSafe(action, payload) {
         if (!CONNECTED) return;
         pendingPush++;
@@ -521,30 +526,34 @@
         }).catch(function () { retryQueue.push({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
           .then(function () { pendingPush--; });
       }
-      function flushRetry() {
-        if (!CONNECTED || !retryQueue.length) return;
-        var q = retryQueue; retryQueue = [];
-        bulkPush(q.map(function (item) { return item.payload; }), "未同期ぶんを再送しました");
-      }
-      // 複数件の書き込みは、同時に送りすぎるとサーバー(GAS)が一部取りこぼすため、
-      // 最大3件ずつ順番に送る。失敗ぶんは再送キューに積む。まとめ同期中は自動更新を止める。
-      function bulkPush(items, doneMsg) {
-        if (!CONNECTED || !items || !items.length) return;
+      // {action,payload} の配列を最大3件ずつ順に送る（同時に送りすぎるとGASが取りこぼすため）。
+      // 失敗ぶんは元のactionのまま再送キューへ。まとめ同期中は自動更新を止める（pendingPush）。
+      function sendQueue(queue, doneMsg) {
+        if (!CONNECTED || !queue || !queue.length) return;
         pendingPush++;
         var idx = 0, done = 0, failed = 0, CONC = 3;
         function step() {
-          if (idx >= items.length) return;
-          var it = items[idx++];
-          api("saveShift", it).then(function (res) {
-            if (!res || !res.ok) { failed++; retryQueue.push({ action: "saveShift", payload: it }); }
-          }).catch(function () { failed++; retryQueue.push({ action: "saveShift", payload: it }); })
+          if (idx >= queue.length) return;
+          var q = queue[idx++];
+          api(q.action, q.payload).then(function (res) {
+            if (!res || !res.ok) { failed++; retryQueue.push(q); }
+          }).catch(function () { failed++; retryQueue.push(q); })
             .then(function () {
               done++;
-              if (done < items.length) { toast("同期中… " + done + "/" + items.length); step(); }
-              else { pendingPush--; toast(failed ? (failed + "件が未同期。🔄で再送します。") : (doneMsg || "同期しました")); }
+              if (done < queue.length) { toast("同期中… " + done + "/" + queue.length); step(); }
+              else { pendingPush--; if (failed) toast(failed + "件が未同期。🔄で再送します。"); else if (doneMsg) toast(doneMsg); }
             });
         }
-        for (var c = 0; c < Math.min(CONC, items.length); c++) step();
+        for (var c = 0; c < Math.min(CONC, queue.length); c++) step();
+      }
+      // まとめ申請用：saveShiftのitems配列をsendQueueに載せる
+      function bulkPush(items, doneMsg) {
+        sendQueue((items || []).map(function (it) { return { action: "saveShift", payload: it }; }), doneMsg);
+      }
+      function flushRetry() {
+        if (!CONNECTED || !retryQueue.length) return;
+        var q = retryQueue; retryQueue = [];
+        sendQueue(q, "未同期ぶんを再送しました");   // ★元のactionのまま再送（saveShiftに化けさせない）
       }
       // サーバーから全データを取得してメモリに反映（給料は含まれない）
       function pullAll() {
@@ -554,7 +563,7 @@
           _shifts = d.shifts || {}; store.write("demo_shifts", _shifts);
           _notes = d.notes || {}; store.write("demo_notes", _notes);
           var wagePrev = {}; STAFF.forEach(function (p) { if (p.wage) wagePrev[p.id] = p.wage; });
-          STAFF = (d.staff || []).map(function (p) { p.wage = (salaryUnlocked && wagePrev[p.id]) ? wagePrev[p.id] : 0; return p; });
+          STAFF = (d.staff || []).map(function (p) { p.name = cleanName(p.name); p.wage = (salaryUnlocked && wagePrev[p.id]) ? wagePrev[p.id] : 0; return p; });
           _settings = { closingDay: (d.settings && d.settings.closingDay) || "end", deadlineDay: parseInt(d.settings && d.settings.deadlineDay, 10) || 25 };
           store.write("demo_settings", _settings);
           // ログイン中ユーザーを新しいメンバー一覧から取り直す（消えていたらログアウト）
@@ -725,7 +734,9 @@
       // シフト1件を「合計・通常・深夜」の各時間（時間単位）に分解する
       function splitHours(rec) {
         if (!rec || rec.off || !rec.start || !rec.end) return { total: 0, normal: 0, late: 0, gross: 0, brk: 0 };
-        var s = toMin(rec.start), e = toMin(rec.end); if (e <= s) e += 24 * 60;
+        var s = toMin(rec.start), e = toMin(rec.end);
+        // 不正な時刻（終了≤開始、NaN）は0時間扱いにして計算の暴走を防ぐ（正常入力は翌5:00等を24+で表すのでe>s）
+        if (isNaN(s) || isNaN(e) || e <= s) return { total: 0, normal: 0, late: 0, gross: 0, brk: rec.break || 0 };
         var gross = (e - s) / 60;                                   // 休憩を引く前の在店時間
         var lateGross = Math.max(0, Math.min(e, LATE_END) - Math.max(s, LATE_START)) / 60;
         var normalGross = gross - lateGross;
@@ -975,7 +986,8 @@
         if (currentUser.owner) { meBox.style.display = "none"; }
         else {
           meBox.style.display = "block";
-          document.getElementById("noteInput").value = monthNotes[currentUser.id] || "";
+          var ni = document.getElementById("noteInput");
+          if (document.activeElement !== ni) ni.value = monthNotes[currentUser.id] || "";   // 入力中は上書きしない（自動更新で消えるのを防ぐ）
         }
         // 全員のメモ一覧
         var list = document.getElementById("noteList"), html = "";
@@ -987,6 +999,8 @@
         list.innerHTML = html;
       }
       function escapeHtml(s) { return s.replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+      // 名前は各所で innerHTML に直接入るため、タグを作れる文字を除去して保存・表示する（表示崩れ/XSS防止）
+      function cleanName(s) { return String(s == null ? "" : s).replace(/[<>&"']/g, "").slice(0, 40); }
       function saveNote() {
         var notes = loadNotes(), mk = focusMonthKey();
         if (!notes[mk]) notes[mk] = {};
@@ -1021,9 +1035,16 @@
       }
       function saveMemberRow(id, row) {
         var p = STAFF.filter(function (x) { return x.id === id; })[0]; if (!p) return;
-        p.name = row.querySelector(".m-name").value.trim() || p.name;
+        var newOwner = (row.querySelector(".m-role").value === "オーナー");
+        // 最後のオーナーをスタッフに変えると誰も管理できなくなるので防ぐ
+        if (p.owner && !newOwner && STAFF.filter(function (x) { return x.owner; }).length <= 1) {
+          alert("オーナーは最低1人必要です。先に別の人をオーナーにしてから変更してください。");
+          row.querySelector(".m-role").value = "オーナー";
+          return;
+        }
+        p.name = cleanName(row.querySelector(".m-name").value.trim()) || p.name;
         p.role = row.querySelector(".m-role").value;
-        p.owner = (p.role === "オーナー");
+        p.owner = newOwner;
         p.wage = Math.max(0, parseInt(row.querySelector(".m-wage").value, 10) || 0);
         p.worker = true;
         saveStaff(); pushStaff(); render();
@@ -1088,7 +1109,7 @@
       var HOUR_OPTS = (function () { var s = ""; for (var v = 12; v <= 30; v++) { s += "<option value='" + v + "'>" + (v >= 24 ? "翌" + (v - 24) : v) + "</option>"; } return s; })();
       var MIN_OPTS = (function () { var s = ""; for (var v = 0; v < 60; v += 5) { s += "<option value='" + v + "'>" + pad(v) + "</option>"; } return s; })();
       function fillHM(hSel, mSel) { hSel.innerHTML = HOUR_OPTS; mSel.innerHTML = MIN_OPTS; }
-      function getHM(hSel, mSel) { return pad(parseInt(hSel.value, 10)) + ":" + pad(parseInt(mSel.value, 10)); }
+      function getHM(hSel, mSel) { var h = parseInt(hSel.value, 10), m = parseInt(mSel.value, 10); if (isNaN(h)) h = 18; if (isNaN(m)) m = 0; return pad(h) + ":" + pad(m); }
       function setHM(hSel, mSel, val) { var p = (val || "18:00").split(":"); hSel.value = String(parseInt(p[0], 10)); mSel.value = String(parseInt(p[1], 10)); }
       // 実働時間を「6h」「6h30m」のように見やすく表示する
       function fmtDur(h) { var t = Math.round(h * 60), H = Math.floor(t / 60), M = t % 60; return M ? H + "h" + pad(M) + "m" : H + "h"; }
@@ -1134,6 +1155,7 @@
           off: document.getElementById("offCheck").checked,
           status: currentUser.owner ? "confirmed" : "requested"
         };
+        if (!rec.off && toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         var shifts = loadShifts(); if (!shifts[date]) shifts[date] = {};
         shifts[date][sid] = rec;
         saveShifts(shifts);
@@ -1174,6 +1196,7 @@
         var sid = currentUser.owner ? document.getElementById("batchMember").value : currentUser.id;
         var off = document.getElementById("batchOff").checked;
         var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, off: off, status: currentUser.owner ? "confirmed" : "requested" };
+        if (!off && toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         var shifts = loadShifts();
         var items = [];
         days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, off: rec.off, status: rec.status }; shifts[k][sid] = r; items.push({ date: k, staffId: sid, rec: r }); });
