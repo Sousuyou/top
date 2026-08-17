@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>勤怠管理アプリ セットアップ手順</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #e9e9e5; --paper: #fbfaf6; --panel-soft: #f3f2ee; --field: #ffffff;
+        --line: #c9c8c2; --text: #161616; --muted: #6f6d67; --accent: #161616; --on-accent: #fff;
+        --green: #3f6b54; --green-soft: #e7efe8; --gold: #9a7b32; --gold-soft: #f4ecd8;
+        --red: #a72821; --red-soft: #f6e5e4; --shadow: 0 18px 42px rgba(30,30,27,.08);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14130f; --paper: #1c1b16; --panel-soft: #242219; --field: #211f19;
+          --line: #3a382f; --text: #ece9df; --muted: #a09c8e; --accent: #ece9df; --on-accent: #14130f;
+          --green: #93bf97; --green-soft: #23302a; --gold: #d8ad62; --gold-soft: #2c2717;
+          --red: #d8736c; --red-soft: #2e1a18; --shadow: 0 18px 42px rgba(0,0,0,.45);
+        }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.75;
+        font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif; }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 80px; }
+      h1 { font-size: 24px; margin: 0 0 6px; }
+      .lead { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+      .time-badge { display: inline-block; background: var(--green-soft); color: var(--green); border: 1px solid var(--green); border-radius: 999px; font-size: 12px; padding: 2px 12px; margin-bottom: 24px; }
+      .step { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px; margin-bottom: 16px; display: flex; gap: 16px; }
+      .num { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+      .step-body { flex: 1; }
+      .step-body h3 { margin: 3px 0 8px; font-size: 17px; }
+      .step-body p { margin: 0 0 8px; font-size: 14.5px; }
+      .step-body ul { margin: 8px 0; padding-left: 20px; font-size: 14.5px; }
+      .step-body li { margin: 4px 0; }
+      code, .kbd { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+      .path { font-weight: 700; }
+      .callout { border-radius: 12px; padding: 12px 15px; font-size: 14px; margin: 10px 0; }
+      .callout.warn { background: var(--gold-soft); border: 1px solid var(--gold); }
+      .callout.warn b { color: var(--gold); }
+      .callout.key { background: var(--red-soft); border: 1px solid var(--red); }
+      .callout.key b { color: var(--red); }
+      .callout.ok { background: var(--green-soft); border: 1px solid var(--green); }
+      .callout.ok b { color: var(--green); }
+      .divider { text-align: center; color: var(--muted); font-size: 13px; margin: 28px 0 16px; font-weight: 700; letter-spacing: .05em; }
+      .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 30px; }
+      .pill { display:inline-block; background: var(--panel-soft); border:1px solid var(--line); border-radius:8px; padding:1px 8px; font-size:13px; font-weight:700; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>🍸 勤怠管理アプリ セットアップ手順</h1>
+      <p class="lead">「みんなで共有」できるようにするための設定です。難しくありません、順番に進めれば大丈夫。</p>
+      <span class="time-badge">所要時間 約10分 ／ 必要なもの：あなたのGoogleアカウント</span>
+
+      <div class="callout ok">
+        <b>これから何をする？</b><br>
+        ①データを保管する「表（スプレッドシート）」を1つ作り、②そこに"運び屋プログラム"を仕込み、③出てきたURLをアプリに貼る——これだけです。
+      </div>
+
+      <div class="divider">― パソコンで行ってください ―</div>
+
+      <div class="step">
+        <div class="num">1</div>
+        <div class="step-body">
+          <h3>スプレッドシートを1つ作る</h3>
+          <p><a href="https://sheets.new" target="_blank">sheets.new</a> を開く（または Googleドライブ →「新規」→「Googleスプレッドシート」）。</p>
+          <p>名前を分かりやすく変えておきましょう。例：<span class="pill">Bar Soutsu 勤怠データ</span></p>
+          <p>中身は空のままでOK。表は"運び屋"が自動で作ります。</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div class="step-body">
+          <h3>「運び屋プログラム」を開く場所へ</h3>
+          <p>上のメニュー <span class="path">拡張機能 → Apps Script</span> をクリック。新しいタブでコード編集画面が開きます。</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div class="step-body">
+          <h3>プログラムを貼り付ける</h3>
+          <p>編集画面にある文字（<code>function myFunction() {}</code> など）を<b>すべて消して</b>、私がお渡しした <span class="pill">Code.gs</span> の中身を<b>全部コピーして貼り付け</b>ます。</p>
+          <div class="callout warn"><b>ヒント：</b> Code.gs はテキストファイルです。開いて「すべて選択（⌘A）→コピー（⌘C）」→編集画面に「貼り付け（⌘V）」。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">4</div>
+        <div class="step-body">
+          <h3>あなたの暗証番号（PIN）を決める</h3>
+          <p>貼り付けたコードの上の方にある、この行を探します：</p>
+          <p><code>var OWNER_PIN = "0000";</code></p>
+          <p><code>0000</code> の部分を、<b>あなただけが知っている数字</b>に書き換えます。<b>6桁以上</b>がおすすめ。例：<code>var OWNER_PIN = "483920";</code></p>
+          <div class="callout key"><b>🔑 これが給料の鍵です。</b> この番号を入れたときだけ、アプリで給料が見られます。スタッフには教えないでください。忘れないようにメモを。<br><b>※ 安全のため、初期値 "0000" や4桁未満のままだと給料機能は動きません。</b></div>
+          <p>できたら <span class="kbd">💾 保存</span>（フロッピーのアイコン、または ⌘S）。</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">5</div>
+        <div class="step-body">
+          <h3>「公開（デプロイ）」する</h3>
+          <p>右上の <span class="path">デプロイ → 新しいデプロイ</span> をクリック。</p>
+          <ul>
+            <li>種類の選択（⚙️歯車）→ <b>ウェブアプリ</b> を選ぶ</li>
+            <li><b>次のユーザーとして実行：</b> <span class="pill">自分</span></li>
+            <li><b>アクセスできるユーザー：</b> <span class="pill">全員</span> ← ここ重要！</li>
+            <li><b>デプロイ</b> を押す</li>
+          </ul>
+          <div class="callout warn"><b>初回だけ確認画面が出ます：</b>「アクセスを承認」→自分のGoogleアカウントを選択→「詳細」→「（安全でないページ）に移動」→「許可」。これは<b>あなた自身が作ったプログラム</b>を、あなたが許可するだけなので安全です。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">6</div>
+        <div class="step-body">
+          <h3>出てきた「URL」をコピー</h3>
+          <p>完了画面に <b>ウェブアプリのURL</b>（<code>https://script.google.com/macros/s/……/exec</code>）が表示されます。これを<b>コピー</b>します。</p>
+          <div class="callout ok"><b>このURLが「共有の入口」です。</b> あとでスタッフにも同じURLを渡します。</div>
+        </div>
+      </div>
+
+      <div class="divider">― 勤怠アプリ側の設定 ―</div>
+
+      <div class="step">
+        <div class="num">7</div>
+        <div class="step-body">
+          <h3>アプリに接続する</h3>
+          <p>勤怠アプリを開き、最初のログイン画面の下にある <span class="pill">接続設定</span> を押して、さっきコピーしたURLを貼り付けます。</p>
+          <p>表示が <span class="pill">🟢 接続済み</span> になれば成功です！</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">8</div>
+        <div class="step-body">
+          <h3>動作確認</h3>
+          <ul>
+            <li>「店長（オーナー）」でログイン → 給料の欄で <b>暗証番号を入力</b> → 給料が表示されればOK</li>
+            <li>シフトを1件入れて、別の端末（スマホ）で開いて同じシフトが見えれば、共有成功🎉</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">9</div>
+        <div class="step-body">
+          <h3>スタッフに配る</h3>
+          <p>スタッフには次の2つを伝えます：</p>
+          <ul>
+            <li><b>アプリのURL</b>（アプリを開くアドレス）</li>
+            <li><b>接続用URL</b>（手順6のURL）… 各自が最初に1回だけ「接続設定」に貼る</li>
+          </ul>
+          <p>スタッフは名前を選ぶだけで使えます。<b>暗証番号(PIN)は教えないので、スタッフに給料は見えません。</b></p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <b>うまくいかないときは：</b> 「接続に失敗」と出たら、貼ったURLの末尾が <code>/exec</code> で終わっているか確認してください。それでもダメなら、この画面のスクショと一緒に教えてください。一緒に直します。
+      </div>
+
+      <p class="foot">Bar Soutsu ツールズ ｜ 勤怠管理アプリ セットアップ手順</p>
+    </div>
+  </body>
+</html>

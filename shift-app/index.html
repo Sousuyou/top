@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#e9e9e5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
+    <title>Bar Soutsu 勤怠管理</title>
+    <style>
+      /* ── Bar Soutsu 共通テーマの色（見本なので単体HTMLに直接埋め込み） ── */
+      :root {
+        color-scheme: light dark;
+        --bg: #e9e9e5;
+        --paper: #fbfaf6;
+        --panel-soft: #f3f2ee;
+        --field: #ffffff;
+        --field-active: #f7f8f8;
+        --line: #c9c8c2;
+        --text: #161616;
+        --muted: #6f6d67;
+        --accent: #161616;
+        --on-accent: #ffffff;
+        --green: #3f6b54;
+        --green-soft: #e7efe8;
+        --gold: #9a7b32;
+        --gold-soft: #f4ecd8;
+        --blue: #3b6ea5;
+        --red: #a72821;
+        --shadow: 0 18px 42px rgba(30, 30, 27, 0.08);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14130f;
+          --paper: #1c1b16;
+          --panel-soft: #242219;
+          --field: #211f19;
+          --field-active: #2a2820;
+          --line: #3a382f;
+          --text: #ece9df;
+          --muted: #a09c8e;
+          --accent: #ece9df;
+          --on-accent: #14130f;
+          --green: #93bf97;
+          --green-soft: #23302a;
+          --gold: #d8ad62;
+          --gold-soft: #2c2717;
+          --blue: #7fa8d4;
+          --red: #d8736c;
+          --shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+          "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 64px; }
+
+      .demo-banner {
+        background: var(--gold-soft); border: 1px solid var(--gold); color: var(--text);
+        border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px;
+      }
+      .demo-banner b { color: var(--gold); }
+
+      header.app {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+      }
+      .brand { display: flex; align-items: baseline; gap: 10px; }
+      .brand h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+      .brand .sub { font-size: 12px; color: var(--muted); }
+      .whoami {
+        display: flex; align-items: center; gap: 10px;
+        background: var(--paper); border: 1px solid var(--line);
+        border-radius: 999px; padding: 6px 8px 6px 14px; box-shadow: var(--shadow);
+      }
+      .whoami .role { font-size: 13px; }
+      .badge-owner {
+        font-size: 11px; background: var(--gold-soft); color: var(--gold);
+        border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; margin-left: 4px;
+      }
+
+      button {
+        font-family: inherit; cursor: pointer; border-radius: 10px;
+        border: 1px solid var(--line); background: var(--field); color: var(--text);
+        padding: 8px 14px; font-size: 14px; transition: .15s;
+      }
+      button:hover { background: var(--field-active); }
+      button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+      button.primary:hover { opacity: .9; }
+      button.gold { background: var(--gold); color: #fff; border-color: var(--gold); }
+      button.ghost { background: transparent; }
+      button.small { padding: 5px 10px; font-size: 13px; border-radius: 8px; }
+
+      /* ── ログイン ── */
+      .login {
+        background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
+        box-shadow: var(--shadow); padding: 30px 24px; max-width: 440px; margin: 40px auto; text-align: center;
+      }
+      .login h2 { margin: 0 0 6px; font-size: 20px; }
+      .login p { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+      .people { display: grid; gap: 10px; }
+      .person-btn { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 16px; font-size: 15px; border-radius: 12px; }
+      .person-btn .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--green-soft); color: var(--green); font-weight: 700; font-size: 15px; }
+      .person-btn.owner .avatar { background: var(--gold-soft); color: var(--gold); }
+      .person-btn .who { flex: 1; }
+      .person-btn .who small { display: block; color: var(--muted); font-size: 12px; }
+
+      /* ── 表示切替＋ナビ ── */
+      .viewbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+      .seg { display: inline-flex; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+      .seg button { border: none; background: transparent; border-radius: 999px; padding: 6px 18px; font-weight: 700; color: var(--muted); }
+      .seg button.on { background: var(--accent); color: var(--on-accent); }
+      .navctrls { display: flex; align-items: center; gap: 10px; }
+      .navctrls .label { font-size: 15px; font-weight: 700; min-width: 200px; text-align: center; }
+
+      .card { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; }
+      .card .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      .card .card-head h3 { margin: 0; font-size: 16px; }
+      .head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+      /* ── 週テーブル ── */
+      .table-scroll { overflow-x: auto; }
+      table.shift { border-collapse: collapse; width: 100%; min-width: 620px; }
+      table.shift th, table.shift td { border: 1px solid var(--line); padding: 8px 6px; text-align: center; font-size: 13px; vertical-align: middle; }
+      table.shift thead th { background: var(--panel-soft); font-weight: 700; }
+      table.shift thead th .dow { font-size: 12px; color: var(--muted); font-weight: 600; }
+      table.shift thead th.sat .dow { color: var(--blue); }
+      table.shift thead th.sun .dow { color: var(--red); }
+      table.shift .namecell { text-align: left; white-space: nowrap; font-weight: 700; background: var(--panel-soft); position: sticky; left: 0; z-index: 1; }
+      table.shift .namecell small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+      .cell { min-height: 40px; border-radius: 8px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+      .cell.editable { cursor: pointer; }
+      .cell.editable:hover { background: var(--field-active); outline: 2px dashed var(--line); }
+      .time { font-weight: 700; font-size: 13px; white-space: nowrap; }
+      .off { color: var(--muted); font-size: 12px; }
+      .empty { color: var(--line); font-size: 16px; }
+      .status { font-size: 10px; border-radius: 999px; padding: 0 7px; line-height: 16px; display: inline-block; }
+      .status.requested { background: var(--gold-soft); color: var(--gold); border: 1px solid var(--gold); }
+      .status.confirmed { background: var(--green-soft); color: var(--green); border: 1px solid var(--green); }
+      .me-row .namecell { color: var(--green); }
+
+      /* ── 月カレンダー ── */
+      .calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; padding: 12px; }
+      .cal-dow { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0; font-weight: 700; }
+      .cal-dow.sat { color: var(--blue); } .cal-dow.sun { color: var(--red); }
+      .cal-cell { min-width: 0; min-height: 82px; border: 1px solid var(--line); border-radius: 10px; padding: 5px 4px; background: var(--field); display: flex; flex-direction: column; gap: 3px; cursor: pointer; transition: .12s; overflow: hidden; }
+      .cal-cell > * { min-width: 0; max-width: 100%; }
+      .cal-cell.blank { background: transparent; border: none; cursor: default; }
+      .cal-cell:hover:not(.blank) { background: var(--field-active); }
+      .cal-cell.selected { outline: 2px solid var(--gold); border-color: var(--gold); background: var(--gold-soft); }
+      .cal-date { font-size: 12px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+      .cal-date.sat { color: var(--blue); } .cal-date.sun { color: var(--red); }
+      .cal-check { color: var(--gold); font-weight: 900; }
+      .chip { font-size: 10px; line-height: 1.35; border-radius: 5px; padding: 1px 5px; background: var(--panel-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid var(--line); }
+      .chip.mine { background: var(--green-soft); color: var(--green); font-weight: 700; }
+      .chip.confirmed { border-left-color: var(--green); }
+      .chip.requested { border-left-color: var(--gold); }
+      .chip.off { color: var(--muted); font-style: italic; }
+
+      .hint { font-size: 12px; color: var(--muted); padding: 10px 16px 4px; }
+
+      /* ── まとめて申請パネル ── */
+      .batch-panel { padding: 14px 16px; border-bottom: 1px solid var(--gold); background: var(--gold-soft); }
+      .batch-panel .brow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .batch-panel .bcount { font-weight: 800; color: var(--gold); }
+      .batch-panel label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+      .batch-panel select { font-family: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--text); }
+      .batch-off { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+      .batch-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+      /* ── 給料（オーナー専用） ── */
+      .salary-card { border-color: var(--gold); }
+      .salary-card .card-head { background: var(--gold-soft); border-bottom-color: var(--gold); }
+      .lock-note { font-size: 12px; color: var(--gold); }
+      table.salary { border-collapse: collapse; width: 100%; min-width: 460px; }
+      table.salary th, table.salary td { border-bottom: 1px solid var(--line); padding: 10px 14px; text-align: right; font-size: 14px; }
+      table.salary th:first-child, table.salary td:first-child { text-align: left; }
+      table.salary thead th { color: var(--muted); font-size: 12px; font-weight: 600; }
+      table.salary tfoot td { font-weight: 800; border-top: 2px solid var(--line); }
+      .yen { font-variant-numeric: tabular-nums; }
+
+      /* ── 希望・備考欄 ── */
+      .note-me { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+      .note-me label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 6px; }
+      .note-me textarea { width: 100%; min-height: 60px; font-family: inherit; font-size: 14px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--text); resize: vertical; }
+      .note-me .note-save { margin-top: 8px; }
+      .note-list { padding: 6px 16px 14px; }
+      .note-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+      .note-item:last-child { border-bottom: none; }
+      .note-item .nname { font-weight: 700; min-width: 64px; }
+      .note-item .ntext { color: var(--text); white-space: pre-wrap; }
+      .note-item .ntext.empty { color: var(--muted); }
+
+      /* ── モーダル ── */
+      .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+      .modal-bg.show { display: flex; }
+      .modal { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); width: 100%; max-width: 360px; padding: 20px; }
+      .modal h3 { margin: 0 0 4px; font-size: 17px; }
+      .modal .msub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+      .modal label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+      .modal select, .modal input { width: 100%; font-family: inherit; font-size: 15px; padding: 9px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--field); color: var(--text); }
+      .time-row { display: flex; gap: 10px; }
+      .time-row > div { flex: 1; }
+      .hm { display: inline-flex; align-items: center; gap: 5px; }
+      .modal .hm { display: flex; }
+      .modal .hm select { flex: 1; width: auto; }
+      .batch-panel .hm select { width: auto; }
+      .modal .actions { display: flex; gap: 8px; margin-top: 20px; }
+      .modal .actions button { flex: 1; }
+      .off-toggle { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; }
+      .off-toggle input { width: auto; }
+
+      /* ── 提出締切のお知らせ ── */
+      .notice { background: var(--green-soft); border: 1px solid var(--green); color: var(--text); border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+      .notice b { color: var(--green); }
+      .notice-sub { margin-top: 6px; color: var(--muted); font-size: 12px; }
+      .notice-sub b { color: var(--text); }
+      .notice-sub select { font-family: inherit; font-size: 12px; padding: 3px 6px; border-radius: 7px; border: 1px solid var(--line); background: var(--field); color: var(--text); margin-left: 4px; }
+
+      /* ── 給与明細の操作バー ── */
+      .pay-controls { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      .pay-controls label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+      .pay-controls select { font-family: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--text); }
+      .pay-nav { display: inline-flex; align-items: center; gap: 8px; }
+      .pay-nav small { color: var(--muted); font-weight: 400; }
+
+      /* ── メンバー管理 ── */
+      .mrow { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      .mrow input, .mrow select { font-family: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--text); }
+      .mrow .m-name { flex: 1; min-width: 110px; }
+      .mrow .m-wagewrap { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+      .mrow .m-wage { width: 84px; }
+
+      /* ── 接続・同期 UI ── */
+      .conn-row { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; }
+      .conn-badge { color: var(--muted); }
+      .lock-box { padding: 22px 16px; text-align: center; }
+      .lock-box p { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+      .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: var(--accent); color: var(--on-accent); padding: 10px 18px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: .25s; z-index: 100; max-width: 90%; text-align: center; }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+      .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; }
+      @media (max-width: 560px) {
+        .brand h1 { font-size: 18px; }
+        .wrap { padding: 14px 10px 56px; }
+        .navctrls .label { min-width: 150px; font-size: 14px; }
+        .cal-cell { min-height: 68px; padding: 4px 2px; }
+        .calendar { gap: 3px; padding: 8px 6px; }
+        .cal-date { font-size: 11px; }
+        .chip { font-size: 9px; padding: 1px 3px; border-left-width: 3px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="demo-banner" id="demoBanner">
+        🧪 <b>未接続（デモ）</b>です。データはこの端末の中だけに仮保存されます。ログイン画面の「接続設定」で共有URLを設定すると、みんなで共有できます。
+      </div>
+
+      <!-- ログイン -->
+      <section id="loginView">
+        <div class="login">
+          <h2>🍸 勤怠管理</h2>
+          <p>あなたのお名前を選んでください</p>
+          <div class="people" id="peopleList"></div>
+          <div class="conn-row">
+            <span id="connBadge" class="conn-badge"></span>
+            <button class="small ghost" id="setupBtn">接続設定</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- メイン -->
+      <section id="appView" style="display:none">
+        <header class="app">
+          <div class="brand">
+            <h1>🍸 勤怠管理</h1>
+            <span class="sub">Bar Soutsu</span>
+          </div>
+          <div class="whoami">
+            <button class="small ghost" id="refreshBtn" title="最新に更新">🔄</button>
+            <span class="role" id="whoLabel"></span>
+            <button class="small ghost" id="switchBtn">切替</button>
+          </div>
+        </header>
+
+        <div id="deadlineNotice" class="notice"></div>
+
+        <div class="viewbar">
+          <div class="seg">
+            <button id="weekModeBtn" class="on">週</button>
+            <button id="monthModeBtn">月</button>
+          </div>
+          <div class="navctrls">
+            <button class="small" id="prevBtn">←</button>
+            <span class="label" id="rangeLabel"></span>
+            <button class="small" id="nextBtn">→</button>
+          </div>
+        </div>
+
+        <!-- シフト表 -->
+        <div class="card">
+          <div class="card-head">
+            <h3 id="shiftTitle">シフト</h3>
+            <div class="head-actions">
+              <button class="small gold" id="batchBtn" style="display:none">＋ まとめて申請</button>
+              <button class="small primary" id="confirmBtn" style="display:none">確定する</button>
+            </div>
+          </div>
+
+          <!-- まとめて申請パネル -->
+          <div class="batch-panel" id="batchPanel" style="display:none">
+            <div class="brow">
+              <span class="bcount"><span id="batchCount">0</span>日 選択中</span>
+              <span id="batchMemberWrap" style="display:none"><label>対象</label><select id="batchMember"></select></span>
+              <span class="batch-off"><input type="checkbox" id="batchOff" /><label for="batchOff" style="margin:0">休みとして申請</label></span>
+              <span id="batchTimeWrap"><label>時間</label>
+                <span class="hm"><select id="batchStartH"></select><span>:</span><select id="batchStartM"></select></span> 〜
+                <span class="hm"><select id="batchEndH"></select><span>:</span><select id="batchEndM"></select></span>
+                <label style="margin-left:8px">休憩</label>
+                <select id="batchBreak">
+                  <option value="0">なし</option><option value="15">15分</option><option value="30">30分</option><option value="45">45分</option><option value="60">60分</option><option value="90">90分</option>
+                </select>
+              </span>
+            </div>
+            <div class="batch-actions">
+              <button class="small ghost" id="batchCancel">やめる</button>
+              <button class="small gold" id="batchApply">選択した日にまとめて申請</button>
+            </div>
+          </div>
+
+          <div id="weekWrap" class="table-scroll">
+            <table class="shift" id="shiftTable"></table>
+          </div>
+          <div id="monthWrap" style="display:none">
+            <div class="calendar" id="calendar"></div>
+          </div>
+          <div class="hint" id="editHint"></div>
+        </div>
+
+        <!-- 希望・備考欄 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>📝 希望シフト・出勤頻度メモ<span id="noteMonth" style="font-weight:500;color:var(--muted)"></span></h3>
+          </div>
+          <div class="note-me" id="noteMe" style="display:none">
+            <label id="noteMeLabel">あなたの希望（例：週3〜4日希望。金土は入れます。木は避けたいです）</label>
+            <textarea id="noteInput" placeholder="出たい頻度・入れない曜日・希望などを自由に書いてください"></textarea>
+            <button class="small primary note-save" id="noteSave">メモを保存</button>
+          </div>
+          <div class="note-list" id="noteList"></div>
+        </div>
+
+        <!-- 給与明細（オーナー専用） -->
+        <div class="card salary-card" id="salaryCard" style="display:none">
+          <div class="card-head">
+            <h3>💰 給与明細（あなただけが見られます）</h3>
+            <span class="lock-note">🔒 オーナー専用</span>
+          </div>
+          <div id="salaryLock" class="lock-box" style="display:none">
+            <p>🔒 給料はオーナー専用です。暗証番号（PIN）を入力すると表示されます。</p>
+            <button class="small primary" id="unlockBtn">暗証番号を入力して表示</button>
+          </div>
+          <div id="payControls" class="pay-controls">
+            <span><label>締め日</label>
+              <select id="closingDay">
+                <option value="end">末日</option>
+                <option value="10">10日</option>
+                <option value="15">15日</option>
+                <option value="20">20日</option>
+                <option value="25">25日</option>
+              </select>
+            </span>
+            <span class="pay-nav">
+              <button class="small" id="salPrev">◀ 前</button>
+              <span id="salPeriod"></span>
+              <button class="small" id="salNext">次 ▶</button>
+            </span>
+            <button class="small" id="salCopy">明細をコピー</button>
+          </div>
+          <div id="salaryTableWrap" class="table-scroll"><table class="salary" id="salaryTable"></table></div>
+          <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間です。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
+          <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">🔓 給料を隠す（この端末のPIN保存も解除）</button></div>
+        </div>
+
+        <!-- メンバー管理（オーナー専用） -->
+        <div class="card manage-card" id="manageCard" style="display:none">
+          <div class="card-head">
+            <h3>👥 メンバー管理</h3>
+            <span class="lock-note">🔒 オーナー専用</span>
+          </div>
+          <div id="manageLock" class="lock-box" style="display:none">
+            <p>🔒 メンバーの時給を扱うため、暗証番号（PIN）が必要です。</p>
+            <button class="small primary" id="unlockBtn2">暗証番号を入力</button>
+          </div>
+          <div id="manageList"></div>
+          <div id="manageAddWrap" style="padding:12px 16px"><button class="small" id="addMember">＋ メンバーを追加</button></div>
+          <div class="hint" id="manageHint">名前・時給を変えたら各行の「保存」を押してください。時給を 0 にすると給料は出さず「記録のみ」になります。役割を「オーナー」にすると、その人も給料を見られます。</div>
+        </div>
+
+        <div class="foot">Bar Soutsu ツールズ ｜ 勤怠管理</div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- 暗証番号(PIN)入力モーダル -->
+    <div class="modal-bg" id="pinModalBg">
+      <div class="modal">
+        <h3>🔒 暗証番号（PIN）</h3>
+        <p class="msub">オーナー専用です。給料を表示します。</p>
+        <input type="password" inputmode="numeric" autocomplete="off" id="pinInput" placeholder="暗証番号" />
+        <label class="off-toggle" style="margin-top:12px"><input type="checkbox" id="pinRemember" checked /> <span style="color:var(--text);font-size:14px">この端末に保存して次回から自動で開く</span></label>
+        <div id="pinError" style="color:var(--red);font-size:13px;min-height:18px;margin-top:8px"></div>
+        <div class="actions">
+          <button class="ghost" id="pinCancel">キャンセル</button>
+          <button class="primary" id="pinOk">表示する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- シフト入力モーダル -->
+    <div class="modal-bg" id="modalBg">
+      <div class="modal">
+        <h3 id="modalTitle">シフトを入力</h3>
+        <p class="msub" id="modalSub"></p>
+        <div id="memberRow" style="display:none">
+          <label>メンバー</label>
+          <select id="memberSelect"></select>
+        </div>
+        <div class="off-toggle">
+          <input type="checkbox" id="offCheck" />
+          <label for="offCheck" style="margin:0;color:var(--text);font-size:14px">この日は休み</label>
+        </div>
+        <div id="timeInputs">
+          <div class="time-row">
+            <div><label>開始</label><div class="hm"><select id="startH"></select><span>:</span><select id="startM"></select></div></div>
+            <div><label>終了</label><div class="hm"><select id="endH"></select><span>:</span><select id="endM"></select></div></div>
+          </div>
+          <label>休憩</label>
+          <select id="breakTime">
+            <option value="0">なし</option>
+            <option value="15">15分</option>
+            <option value="30">30分</option>
+            <option value="45">45分</option>
+            <option value="60">60分</option>
+            <option value="90">90分</option>
+            <option value="120">120分</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="modalDelete" style="flex:0 0 auto">削除</button>
+          <button class="ghost" id="modalCancel">キャンセル</button>
+          <button class="primary" id="modalSave">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ───────────────────────────────────────────────
+      //  Bar Soutsu 勤怠管理 — 動く見本（デモ）
+      //  ※本番では読み書きをGoogleスプレッドシートに置き換えます。
+      //    いまはこの端末のローカル保存（localStorage）で疑似的に動かしています。
+      // ───────────────────────────────────────────────
+
+      var store = {
+        read: function (key, fb) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } },
+        write: function (key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+      };
+
+      var DEFAULT_STAFF = [
+        { id: "owner",  name: "店長",   role: "オーナー", wage: 0,    owner: true, worker: true },
+        { id: "tanaka", name: "田中",   role: "スタッフ", wage: 1300, worker: true },
+        { id: "sato",   name: "佐藤",   role: "スタッフ", wage: 1200, worker: true },
+        { id: "suzuki", name: "鈴木",   role: "スタッフ", wage: 1250, worker: true }
+      ];
+      // メンバーは管理画面から編集できるよう保存領域から読み込む（無ければ初期メンバー）
+      var STAFF = store.read("demo_staff", null) || DEFAULT_STAFF.map(function (x) { return Object.assign({}, x); });
+      function saveStaff() { store.write("demo_staff", STAFF); }
+      var _idSeq = 1;
+      function newMemberId() { return "m" + STAFF.length + "_" + (_idSeq++); }
+      var DOW = ["月", "火", "水", "木", "金", "土", "日"];
+      // 「働く人」＝シフトに並ぶメンバー。店長も自分の勤務を記録するため worker:true。
+      // （owner:true は「給料が見られる・確定できる」権限。worker とは別の概念）
+      function workers() { return STAFF.filter(function (p) { return p.worker; }); }
+
+      // ── 設定（締め日・希望提出の締切日）──
+      var _settings = null;
+      function settings() { if (_settings === null) { _settings = store.read("demo_settings", null) || { closingDay: "end", deadlineDay: 25 }; } return _settings; }
+      function saveSettings() { store.write("demo_settings", _settings); }
+
+      // ═══════════════ サーバー連携（本番：Googleスプレッドシート）═══════════════
+      //  接続先URLは各端末で最初に1回だけ設定。未設定ならローカルのみのデモ動作。
+      // 本番の接続先（Bar Soutsu 勤怠データ）。各端末の「接続設定」で別URLに上書きも可能。
+      var BAKED_URL = "https://script.google.com/macros/s/AKfycbyC13mL8XYJM77AYxv5U-UbSVMn9jOxVV33CmsjH_1aes6xsZUZ_WaCClpcHVrH4PLYOA/exec";
+      var GAS_URL = store.read("gas_url", "") || BAKED_URL;
+      var CONNECTED = !!GAS_URL;
+      var salaryUnlocked = false;   // 給料の暗証番号(PIN)を通したか
+      var _pin = store.read("owner_pin", "") || "";  // 通ったPIN（メンバー編集の保存に使う／端末保存にも対応）
+      function salaryVisible() { return !CONNECTED || salaryUnlocked; }
+      function api(action, payload) {
+        if (!GAS_URL) return Promise.reject(new Error("未接続"));
+        var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
+        return fetch(GAS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: body }).then(function (r) { return r.json(); });
+      }
+      var pendingPush = 0;   // 送信中の書き込み件数（更新の取りこぼし防止に使う）
+      var retryQueue = [];   // 送信失敗ぶんを貯めて、更新時に自動再送
+      function pushSafe(action, payload) {
+        if (!CONNECTED) return;
+        pendingPush++;
+        api(action, payload).then(function (res) {
+          if (!res || !res.ok) { retryQueue.push({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
+        }).catch(function () { retryQueue.push({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
+          .then(function () { pendingPush--; });
+      }
+      function flushRetry() {
+        if (!CONNECTED || !retryQueue.length) return;
+        var q = retryQueue; retryQueue = [];
+        q.forEach(function (item) { pushSafe(item.action, item.payload); });
+      }
+      // サーバーから全データを取得してメモリに反映（給料は含まれない）
+      function pullAll() {
+        return api("load").then(function (res) {
+          if (!res || !res.ok) throw new Error((res && res.error) || "読み込み失敗");
+          var d = res.data || {};
+          _shifts = d.shifts || {}; store.write("demo_shifts", _shifts);
+          _notes = d.notes || {}; store.write("demo_notes", _notes);
+          var wagePrev = {}; STAFF.forEach(function (p) { if (p.wage) wagePrev[p.id] = p.wage; });
+          STAFF = (d.staff || []).map(function (p) { p.wage = (salaryUnlocked && wagePrev[p.id]) ? wagePrev[p.id] : 0; return p; });
+          _settings = { closingDay: (d.settings && d.settings.closingDay) || "end", deadlineDay: parseInt(d.settings && d.settings.deadlineDay, 10) || 25 };
+          store.write("demo_settings", _settings);
+          // ログイン中ユーザーを新しいメンバー一覧から取り直す（消えていたらログアウト）
+          if (currentUser) {
+            var found = STAFF.filter(function (p) { return p.id === currentUser.id; })[0];
+            if (found) currentUser = found; else logout();
+          }
+          return true;
+        });
+      }
+      function fetchWages() { return api("salary", { pin: _pin }).then(function (res) { if (res && res.ok) { var w = res.wages || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; }); } }); }
+      function refresh() {
+        if (!CONNECTED) { toast("ローカル（デモ）で動作中です"); return; }
+        if (pendingPush > 0) { toast("同期中です。少し待ってからもう一度お試しください。"); return; }
+        flushRetry();
+        pullAll().then(function () { return salaryUnlocked ? fetchWages() : null; }).then(function () { render(); toast("最新に更新しました"); })
+          .catch(function () { toast("更新に失敗しました"); });
+      }
+      // 自動更新：60秒ごとに最新を取得し、変化があれば画面を更新（他の人の入力が自然に反映される）
+      var _autoTimer = null;
+      function startAutoRefresh() {
+        if (_autoTimer) return;
+        _autoTimer = setInterval(function () {
+          if (!CONNECTED || !currentUser) return;
+          if (typeof document.hidden !== "undefined" && document.hidden) return;   // 非表示タブでは省略
+          if (pendingPush > 0) return;                                             // 送信中は避ける
+          if (document.getElementById("modalBg").classList.contains("show")) return;
+          if (document.getElementById("pinModalBg").classList.contains("show")) return;
+          if (selectMode) return;                                                  // 選択作業中は邪魔しない
+          var sig = function () { return JSON.stringify(_shifts) + "|" + JSON.stringify(_notes) + "|" + STAFF.map(function (p) { return p.id + p.name + p.role + p.worker + p.owner; }).join(","); };
+          var before = sig();
+          flushRetry();
+          pullAll().then(function () { if (sig() !== before) render(); }).catch(function () {});
+        }, 60000);
+      }
+      // 給料の暗証番号（PIN）入力：アプリ内モーダルで受け付ける（スマホでも確実・エラーも画面内に表示）
+      function openPinModal() {
+        var pe = document.getElementById("pinError"); if (pe) pe.textContent = "";
+        var pi = document.getElementById("pinInput"); if (pi) pi.value = "";
+        document.getElementById("pinModalBg").classList.add("show");
+        setTimeout(function () { if (pi) pi.focus(); }, 60);
+      }
+      function closePinModal() { document.getElementById("pinModalBg").classList.remove("show"); }
+      function submitPin() {
+        var pin = (document.getElementById("pinInput").value || "").trim();
+        var pe = document.getElementById("pinError");
+        if (!pin) { pe.textContent = "暗証番号を入力してください"; return; }
+        pe.textContent = "確認中…";
+        api("salary", { pin: pin }).then(function (res) {
+          if (res && res.ok) {
+            _pin = pin; salaryUnlocked = true;
+            var w = res.wages || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; });
+            if (document.getElementById("pinRemember").checked) store.write("owner_pin", pin); else store.write("owner_pin", "");
+            closePinModal(); render(); toast("給料を表示しました");
+          } else { pe.textContent = (res && res.error) || "暗証番号が違います"; }
+        }).catch(function () { pe.textContent = "接続エラー。通信状況をご確認ください。"; });
+      }
+      // 保存済みPINがあれば自動で解錠する（オーナーのログイン時のみ呼ぶ）
+      function tryAutoUnlock() {
+        var saved = store.read("owner_pin", "") || "";
+        if (!CONNECTED || !saved || salaryUnlocked) return Promise.resolve();
+        return api("salary", { pin: saved }).then(function (res) {
+          if (res && res.ok) { _pin = saved; salaryUnlocked = true; var w = res.wages || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; }); render(); }
+          else { store.write("owner_pin", ""); } // 保存PINが無効ならクリア（PIN変更後など）
+        }).catch(function () {});
+      }
+      function forgetPin() {
+        store.write("owner_pin", ""); _pin = ""; salaryUnlocked = false;
+        if (CONNECTED) STAFF.forEach(function (p) { p.wage = 0; });
+        render(); toast("この端末のPIN保存を解除しました");
+      }
+      function setupConnection() {
+        var url = prompt("接続先URL（オーナーから共有されたURL）を貼り付けてください。\n空欄にするとローカル（デモ）に戻ります。", GAS_URL || "");
+        if (url == null) return;
+        url = url.trim();
+        GAS_URL = url; CONNECTED = !!url; store.write("gas_url", url); salaryUnlocked = false; _pin = "";
+        updateConnBadge();
+        if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); if (currentUser) render(); toast("接続しました"); }).catch(function () { toast("接続に失敗。URLをご確認ください。"); }); }
+        else { toast("ローカル（デモ）に戻しました"); renderLogin(); }
+      }
+      function pushStaff() { if (CONNECTED) pushSafe("saveStaff", { pin: _pin, staff: STAFF }); }
+      function updateConnBadge() {
+        var b = document.getElementById("connBadge"); if (b) b.textContent = CONNECTED ? "🟢 接続済み" : "⚪ ローカル(デモ)";
+        var db = document.getElementById("demoBanner"); if (db) db.style.display = CONNECTED ? "none" : "block";
+      }
+      function toast(msg) {
+        var t = document.getElementById("toast"); if (!t) { return; }
+        t.textContent = msg; t.classList.add("show");
+        clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("show"); }, 2600);
+      }
+
+      var currentUser = null;
+      var viewMode = "week";     // 'week' | 'month'
+      var weekOffset = 0;
+      var monthOffset = 0;
+      var editing = null;        // {sid, date}
+      var selectMode = false;    // まとめて申請の選択モード
+      var selectedDays = {};     // { dateISO: true }
+
+      // ── 日付ユーティリティ（週は月曜はじまり） ──
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+      function mondayOf(offset) {
+        var d = new Date(); d.setHours(0, 0, 0, 0);
+        var day = (d.getDay() + 6) % 7;
+        d.setDate(d.getDate() - day + offset * 7); return d;
+      }
+      function weekDates(offset) {
+        var m = mondayOf(offset), arr = [];
+        for (var i = 0; i < 7; i++) { var d = new Date(m); d.setDate(m.getDate() + i); arr.push(d); }
+        return arr;
+      }
+      function monthInfo() {
+        var base = new Date(); base.setHours(0, 0, 0, 0); base.setDate(1); base.setMonth(base.getMonth() + monthOffset);
+        var year = base.getFullYear(), month = base.getMonth();
+        var startDow = (new Date(year, month, 1).getDay() + 6) % 7;
+        var days = new Date(year, month + 1, 0).getDate();
+        return { year: year, month: month, startDow: startDow, days: days, base: base };
+      }
+      function visibleDates() {
+        if (viewMode === "week") return weekDates(weekOffset);
+        var mi = monthInfo(), arr = [];
+        for (var n = 1; n <= mi.days; n++) arr.push(new Date(mi.year, mi.month, n));
+        return arr;
+      }
+      function focusDate() { return viewMode === "month" ? monthInfo().base : mondayOf(weekOffset); }
+      function focusMonthKey() { var d = focusDate(); return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
+      function focusMonthLabel() { var d = focusDate(); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月"; }
+      function rangeLabel() {
+        if (viewMode === "month") return focusMonthLabel();
+        var ds = weekDates(weekOffset), a = ds[0], b = ds[6];
+        return (a.getMonth() + 1) + "/" + a.getDate() + "（月）〜 " + (b.getMonth() + 1) + "/" + b.getDate() + "（日）";
+      }
+
+      // ── データ ──
+      //  画面を開いている間はメモリ上（_shifts / _notes）を「正」として保持し、
+      //  可能なら端末保存（localStorage）にも書き込む。
+      //  こうすることで、保存が使えない環境（data: URL やプライベートモード）でも
+      //  操作した内容が画面にきちんと反映される。
+      var _shifts = null, _notes = null;
+      function loadShifts() { if (_shifts === null) { _shifts = store.read("demo_shifts", null) || seedShifts(); } return _shifts; }
+      function saveShifts(s) { _shifts = s; store.write("demo_shifts", s); }
+      function loadNotes() { if (_notes === null) { _notes = store.read("demo_notes", {}); } return _notes; }
+      function saveNotes(n) { _notes = n; store.write("demo_notes", n); }
+
+      function seedShifts() {
+        var s = {}, ds = weekDates(0);
+        function set(i, sid, start, end, status) {
+          var k = iso(ds[i]); if (!s[k]) s[k] = {}; s[k][sid] = { start: start, end: end, off: false, status: status };
+        }
+        set(0, "tanaka", "18:00", "24:00", "confirmed");
+        set(1, "tanaka", "18:00", "24:00", "confirmed");
+        set(2, "sato", "17:00", "23:00", "confirmed");
+        set(3, "suzuki", "18:00", "24:00", "requested");
+        set(4, "tanaka", "18:00", "26:00", "requested");
+        set(4, "sato", "18:00", "26:00", "requested");
+        set(5, "suzuki", "17:00", "26:00", "requested");
+        set(5, "tanaka", "18:00", "26:00", "requested");
+        saveShifts(s); return s;
+      }
+
+      function toMin(t) { var p = t.split(":"); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+      // 深夜割増の設定：22:00〜翌5:00 を深夜時間帯とし、その分は時給を+25%する（日本の法定深夜割増）
+      var LATE_START = 22 * 60;   // 22:00
+      var LATE_END = 29 * 60;     // 翌5:00（＝29:00）
+      var LATE_RATE = 0.25;       // 深夜割増率 +25%
+      // シフト1件を「合計・通常・深夜」の各時間（時間単位）に分解する
+      function splitHours(rec) {
+        if (!rec || rec.off || !rec.start || !rec.end) return { total: 0, normal: 0, late: 0, gross: 0, brk: 0 };
+        var s = toMin(rec.start), e = toMin(rec.end); if (e <= s) e += 24 * 60;
+        var gross = (e - s) / 60;                                   // 休憩を引く前の在店時間
+        var lateGross = Math.max(0, Math.min(e, LATE_END) - Math.max(s, LATE_START)) / 60;
+        var normalGross = gross - lateGross;
+        var brk = (rec.break || 0) / 60;                           // 休憩（時間）
+        // 休憩は通常時間から先に差し引く（バーは早い時間に休憩を取る想定）。
+        // 通常で足りない分だけ深夜から差し引く。
+        var normal = Math.max(0, normalGross - brk);
+        var late = Math.max(0, lateGross - Math.max(0, brk - normalGross));
+        return { total: normal + late, normal: normal, late: late, gross: gross, brk: rec.break || 0 };
+      }
+      function hoursOf(rec) { return splitHours(rec).total; }
+
+      // ═══════════════ ログイン ═══════════════
+      function renderLogin() {
+        var box = document.getElementById("peopleList"); box.innerHTML = "";
+        STAFF.forEach(function (p) {
+          var b = document.createElement("button");
+          b.className = "person-btn" + (p.owner ? " owner" : "");
+          b.innerHTML = '<span class="avatar">' + p.name.charAt(0) + "</span>" +
+            '<span class="who">' + p.name + "<small>" + p.role + (p.owner ? "（給料が見られます）" : "") + "</small></span>";
+          b.onclick = function () { login(p.id); };
+          box.appendChild(b);
+        });
+      }
+      function login(id) {
+        currentUser = STAFF.filter(function (p) { return p.id === id; })[0];
+        document.getElementById("loginView").style.display = "none";
+        document.getElementById("appView").style.display = "block";
+        exitSelectMode(); render();
+        // 接続中なら最新データを取り直してから表示を更新（currentUserの取り直しはpullAll内で実施）
+        if (CONNECTED) { pullAll().then(function () { render(); if (currentUser && currentUser.owner) return tryAutoUnlock(); }).catch(function () { toast("最新データの取得に失敗しました"); }); }
+      }
+      function logout() {
+        currentUser = null;
+        salaryUnlocked = false; _pin = "";              // PIN解錠を必ず解除（次のオーナーに引き継がない）
+        if (CONNECTED) STAFF.forEach(function (p) { p.wage = 0; }); // 給料は再度PINを通すまで0に
+        document.getElementById("appView").style.display = "none";
+        document.getElementById("loginView").style.display = "block";
+        updateConnBadge();
+      }
+
+      // ═══════════════ メイン描画 ═══════════════
+      function render() {
+        if (!currentUser) return;   // ログアウト直後などは描画しない
+        var isOwner = currentUser.owner;
+        document.getElementById("whoLabel").innerHTML =
+          '<b>' + currentUser.name + "</b> さん" + (isOwner ? '<span class="badge-owner">オーナー</span>' : "");
+        document.getElementById("rangeLabel").textContent = rangeLabel();
+        document.getElementById("weekModeBtn").classList.toggle("on", viewMode === "week");
+        document.getElementById("monthModeBtn").classList.toggle("on", viewMode === "month");
+        document.getElementById("weekWrap").style.display = viewMode === "week" ? "block" : "none";
+        document.getElementById("monthWrap").style.display = viewMode === "month" ? "block" : "none";
+        document.getElementById("shiftTitle").textContent = viewMode === "week" ? "週間シフト" : focusMonthLabel() + " のシフト";
+
+        // まとめて申請ボタンは月表示のときだけ（複数日を選ぶため）
+        document.getElementById("batchBtn").style.display = viewMode === "month" ? "inline-block" : "none";
+        // 確定ボタンはオーナーのみ
+        var confirmBtn = document.getElementById("confirmBtn");
+        confirmBtn.style.display = isOwner ? "inline-block" : "none";
+        confirmBtn.textContent = viewMode === "week" ? "この週を確定" : "この月を確定";
+
+        if (viewMode === "week") renderTable(); else renderCalendar();
+
+        // 給与明細・メンバー管理（オーナー専用。本番では暗証番号(PIN)で解錠）
+        document.getElementById("salaryCard").style.display = isOwner ? "block" : "none";
+        document.getElementById("manageCard").style.display = isOwner ? "block" : "none";
+        if (isOwner) {
+          var vis = salaryVisible();
+          document.getElementById("salaryLock").style.display = vis ? "none" : "block";
+          document.getElementById("payControls").style.display = vis ? "flex" : "none";
+          document.getElementById("salaryTableWrap").style.display = vis ? "block" : "none";
+          document.getElementById("salaryHint").style.display = vis ? "block" : "none";
+          document.getElementById("manageLock").style.display = vis ? "none" : "block";
+          document.getElementById("manageList").style.display = vis ? "block" : "none";
+          document.getElementById("manageAddWrap").style.display = vis ? "block" : "none";
+          document.getElementById("manageHint").style.display = vis ? "block" : "none";
+          document.getElementById("forgetPinWrap").style.display = vis ? "block" : "none";
+          if (vis) { renderSalary(); renderManage(); }
+        }
+
+        renderDeadline();
+        renderNotes();
+        updateConnBadge();
+
+        document.getElementById("editHint").innerHTML = viewMode === "month"
+          ? "カレンダーの日をタップで1日ずつ入力。<b>「＋ まとめて申請」</b>で複数の日に同じ時間を一括申請できます。"
+          : (isOwner ? "オーナーは全員のシフトをタップして修正できます。" : "自分の行のマスをタップしてシフト希望を入力できます。");
+      }
+
+      // ── 週テーブル ──
+      function renderTable() {
+        var shifts = loadShifts(), ds = weekDates(weekOffset), isOwner = currentUser.owner;
+        var t = document.getElementById("shiftTable");
+        var head = "<thead><tr><th class='namecell'>メンバー</th>";
+        ds.forEach(function (d, i) {
+          var cls = i === 5 ? "sat" : i === 6 ? "sun" : "";
+          head += "<th class='" + cls + "'>" + (d.getMonth() + 1) + "/" + d.getDate() + "<span class='dow'>（" + DOW[i] + "）</span></th>";
+        });
+        head += "</tr></thead>";
+        var body = "<tbody>";
+        workers().forEach(function (p) {
+          var isMe = currentUser.id === p.id;
+          body += "<tr class='" + (isMe ? "me-row" : "") + "'>";
+          body += "<td class='namecell'>" + p.name + (isMe ? " <small>（あなた）</small>" : "<small>" + p.role + "</small>") + "</td>";
+          ds.forEach(function (d) {
+            var k = iso(d), rec = shifts[k] && shifts[k][p.id], canEdit = isOwner || isMe;
+            body += "<td>" + cellHtml(rec, canEdit, p.id, k) + "</td>";
+          });
+          body += "</tr>";
+        });
+        body += "</tbody>";
+        t.innerHTML = head + body;
+        Array.prototype.forEach.call(t.querySelectorAll(".cell.editable"), function (c) {
+          c.onclick = function () { openModal(c.getAttribute("data-sid"), c.getAttribute("data-date")); };
+        });
+      }
+      function cellHtml(rec, canEdit, sid, dateISO) {
+        var cls = "cell" + (canEdit ? " editable" : "");
+        var attr = " data-sid='" + sid + "' data-date='" + dateISO + "'", inner;
+        if (!rec) inner = "<span class='empty'>＋</span>";
+        else if (rec.off) inner = "<span class='off'>休み</span>";
+        else {
+          var st = rec.status === "confirmed" ? "<span class='status confirmed'>確定</span>" : "<span class='status requested'>希望</span>";
+          inner = "<span class='time'>" + rec.start + "〜" + rec.end + "</span>" + st;
+        }
+        return "<div class='" + cls + "'" + attr + ">" + inner + "</div>";
+      }
+
+      // ── 月カレンダー ──
+      function renderCalendar() {
+        var shifts = loadShifts(), mi = monthInfo(), cal = document.getElementById("calendar");
+        var html = "";
+        DOW.forEach(function (d, i) {
+          var cls = i === 5 ? "sat" : i === 6 ? "sun" : "";
+          html += "<div class='cal-dow " + cls + "'>" + d + "</div>";
+        });
+        for (var b = 0; b < mi.startDow; b++) html += "<div class='cal-cell blank'></div>";
+        for (var n = 1; n <= mi.days; n++) {
+          var date = new Date(mi.year, mi.month, n), k = iso(date);
+          var dowIdx = (date.getDay() + 6) % 7;
+          var dcls = dowIdx === 5 ? "sat" : dowIdx === 6 ? "sun" : "";
+          var sel = selectMode && selectedDays[k];
+          var chips = "";
+          workers().forEach(function (p) {
+            var rec = shifts[k] && shifts[k][p.id]; if (!rec) return;
+            var mine = currentUser.id === p.id ? " mine" : "";
+            if (rec.off) chips += "<div class='chip off" + mine + "'>" + p.name + " 休</div>";
+            else chips += "<div class='chip " + rec.status + mine + "'>" + p.name + " " + rec.start.slice(0, 5) + "〜" + rec.end.slice(0, 5) + "</div>";
+          });
+          html += "<div class='cal-cell" + (sel ? " selected" : "") + "' data-date='" + k + "'>" +
+            "<div class='cal-date " + dcls + "'><span>" + n + "</span>" + (sel ? "<span class='cal-check'>✓</span>" : "") + "</div>" +
+            chips + "</div>";
+        }
+        cal.innerHTML = html;
+        Array.prototype.forEach.call(cal.querySelectorAll(".cal-cell[data-date]"), function (c) {
+          c.onclick = function () { onCalendarClick(c.getAttribute("data-date")); };
+        });
+      }
+      function onCalendarClick(dateISO) {
+        if (selectMode) {
+          if (selectedDays[dateISO]) delete selectedDays[dateISO]; else selectedDays[dateISO] = true;
+          document.getElementById("batchCount").textContent = Object.keys(selectedDays).length;
+          renderCalendar();
+        } else {
+          openModal(currentUser.owner ? null : currentUser.id, dateISO);
+        }
+      }
+
+      // ═══════════════ 給与明細（オーナー専用・締め日で区切る）═══════════════
+      var salaryOffset = 0;  // 締め月の移動（0=今の締め月）
+      // 締め日にもとづく集計期間を返す
+      function closingPeriod(offset) {
+        var cd = settings().closingDay;
+        var base = new Date(); base.setHours(0, 0, 0, 0);
+        var y = base.getFullYear(), m = base.getMonth(), day = base.getDate();
+        if (cd === "end") {
+          var first = new Date(y, m + offset, 1);
+          var last = new Date(y, m + offset + 1, 0);
+          return { start: first, end: last, label: first.getFullYear() + "年" + (first.getMonth() + 1) + "月度", sub: "月末締め" };
+        }
+        var N = parseInt(cd, 10);
+        var endMonthIdx = m + (day > N ? 1 : 0) + offset;   // 締め日を過ぎていれば翌月が締め月
+        var end = new Date(y, endMonthIdx, N);
+        var start = new Date(y, endMonthIdx - 1, N + 1);
+        return { start: start, end: end, label: end.getFullYear() + "年" + (end.getMonth() + 1) + "月度", sub: N + "日締め" };
+      }
+      function datesBetween(start, end) {
+        var arr = [], d = new Date(start);
+        while (d <= end) { arr.push(new Date(d)); d.setDate(d.getDate() + 1); }
+        return arr;
+      }
+      // 1人分の集計（この締め期間の 実働・深夜・支給額）
+      function payOf(p, ds, shifts) {
+        var normal = 0, late = 0;
+        ds.forEach(function (d) { var sp = splitHours(shifts[iso(d)] && shifts[iso(d)][p.id]); normal += sp.normal; late += sp.late; });
+        var total = normal + late;
+        var premium = p.wage > 0 ? Math.round(late * p.wage * LATE_RATE) : 0;
+        var pay = p.wage > 0 ? Math.round(total * p.wage) + premium : 0;
+        return { total: total, late: late, premium: premium, pay: pay };
+      }
+      function renderSalary() {
+        var shifts = loadShifts(), t = document.getElementById("salaryTable");
+        var per = closingPeriod(salaryOffset), ds = datesBetween(per.start, per.end);
+        document.getElementById("closingDay").value = settings().closingDay;
+        document.getElementById("salPeriod").innerHTML = "<b>" + per.label + "</b> <small>（" + per.sub + "：" +
+          (per.start.getMonth() + 1) + "/" + per.start.getDate() + "〜" + (per.end.getMonth() + 1) + "/" + per.end.getDate() + "）</small>";
+        var rows = "<thead><tr><th>メンバー</th><th>時給</th><th>実働</th><th>うち深夜</th><th>深夜手当</th><th>支給額</th></tr></thead><tbody>";
+        var tHrs = 0, tLate = 0, tPrem = 0, tPay = 0;
+        workers().forEach(function (p) {
+          var r = payOf(p, ds, shifts);
+          tHrs += r.total; tLate += r.late; tPrem += r.premium; tPay += r.pay;
+          rows += "<tr><td>" + p.name + "</td>" +
+            "<td class='yen'>" + (p.wage > 0 ? "¥" + p.wage.toLocaleString() : "—") + "</td>" +
+            "<td>" + fmtDur(r.total) + "</td>" +
+            "<td>" + (r.late > 0 ? fmtDur(r.late) : "—") + "</td>" +
+            "<td class='yen'>" + (r.premium > 0 ? "¥" + r.premium.toLocaleString() : "—") + "</td>" +
+            "<td class='yen'>" + (p.wage > 0 ? "¥" + r.pay.toLocaleString() : "記録のみ") + "</td></tr>";
+        });
+        rows += "</tbody><tfoot><tr><td>合計（人件費）</td><td></td><td>" + fmtDur(tHrs) + "</td><td>" + fmtDur(tLate) + "</td><td class='yen'>¥" + tPrem.toLocaleString() + "</td><td class='yen'>¥" + tPay.toLocaleString() + "</td></tr></tfoot>";
+        t.innerHTML = rows;
+      }
+      function copyPayslip() {
+        var shifts = loadShifts(), per = closingPeriod(salaryOffset), ds = datesBetween(per.start, per.end);
+        var lines = ["【給与明細】" + per.label + "（" + per.sub + " " + (per.start.getMonth() + 1) + "/" + per.start.getDate() + "〜" + (per.end.getMonth() + 1) + "/" + per.end.getDate() + "）", ""];
+        var total = 0;
+        workers().forEach(function (p) {
+          var r = payOf(p, ds, shifts);
+          if (p.wage > 0) { total += r.pay; lines.push(p.name + "：実働" + fmtDur(r.total) + "（深夜" + fmtDur(r.late) + "） 時給¥" + p.wage.toLocaleString() + " → ¥" + r.pay.toLocaleString()); }
+          else { lines.push(p.name + "：実働" + fmtDur(r.total) + "（深夜" + fmtDur(r.late) + "） 記録のみ"); }
+        });
+        lines.push("", "人件費合計：¥" + total.toLocaleString());
+        var text = lines.join("\n");
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text)["catch"](function () { alert(text); }); flash(document.getElementById("salCopy"), "✓ コピーしました"); }
+          else { alert(text); }
+        } catch (e) { alert(text); }
+      }
+
+      // ═══════════════ 希望・備考欄 ═══════════════
+      function renderNotes() {
+        var notes = loadNotes(), mk = focusMonthKey(), monthNotes = notes[mk] || {};
+        document.getElementById("noteMonth").textContent = "（" + focusMonthLabel() + "）";
+        // 自分の記入欄（スタッフのみ）
+        var meBox = document.getElementById("noteMe");
+        if (currentUser.owner) { meBox.style.display = "none"; }
+        else {
+          meBox.style.display = "block";
+          document.getElementById("noteInput").value = monthNotes[currentUser.id] || "";
+        }
+        // 全員のメモ一覧
+        var list = document.getElementById("noteList"), html = "";
+        STAFF.filter(function (p) { return !p.owner; }).forEach(function (p) {
+          var txt = monthNotes[p.id];
+          html += "<div class='note-item'><span class='nname'>" + p.name + "</span>" +
+            "<span class='ntext" + (txt ? "" : " empty") + "'>" + (txt ? escapeHtml(txt) : "（未記入）") + "</span></div>";
+        });
+        list.innerHTML = html;
+      }
+      function escapeHtml(s) { return s.replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+      function saveNote() {
+        var notes = loadNotes(), mk = focusMonthKey();
+        if (!notes[mk]) notes[mk] = {};
+        var txt = document.getElementById("noteInput").value.trim();
+        notes[mk][currentUser.id] = txt;
+        saveNotes(notes);
+        pushSafe("saveNote", { monthKey: mk, staffId: currentUser.id, text: txt });
+        renderNotes();
+        flash(document.getElementById("noteSave"), "✓ 保存しました");
+      }
+      function flash(btn, txt) { var o = btn.textContent; btn.textContent = txt; setTimeout(function () { btn.textContent = o; }, 1300); }
+
+      // ═══════════════ メンバー管理（オーナー専用）═══════════════
+      function escapeAttr(s) { return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;"); }
+      function renderManage() {
+        var box = document.getElementById("manageList"), html = "";
+        STAFF.forEach(function (p) {
+          html += "<div class='mrow' data-id='" + p.id + "'>" +
+            "<input class='m-name' value='" + escapeAttr(p.name) + "' />" +
+            "<select class='m-role'><option value='スタッフ'" + (p.role === "スタッフ" ? " selected" : "") + ">スタッフ</option>" +
+            "<option value='オーナー'" + (p.role === "オーナー" ? " selected" : "") + ">オーナー</option></select>" +
+            "<span class='m-wagewrap'>時給<input type='number' class='m-wage' value='" + (p.wage || 0) + "' min='0' step='50' /></span>" +
+            "<button class='small m-save'>保存</button>" +
+            "<button class='small ghost m-del'>削除</button></div>";
+        });
+        box.innerHTML = html;
+        Array.prototype.forEach.call(box.querySelectorAll(".mrow"), function (row) {
+          var id = row.getAttribute("data-id");
+          row.querySelector(".m-save").onclick = function () { saveMemberRow(id, row); };
+          row.querySelector(".m-del").onclick = function () { deleteMember(id); };
+        });
+      }
+      function saveMemberRow(id, row) {
+        var p = STAFF.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+        p.name = row.querySelector(".m-name").value.trim() || p.name;
+        p.role = row.querySelector(".m-role").value;
+        p.owner = (p.role === "オーナー");
+        p.wage = Math.max(0, parseInt(row.querySelector(".m-wage").value, 10) || 0);
+        p.worker = true;
+        saveStaff(); pushStaff(); render();
+        flash(row.querySelector(".m-save"), "✓");
+      }
+      function deleteMember(id) {
+        var p = STAFF.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+        if (p.owner && STAFF.filter(function (x) { return x.owner; }).length <= 1) { alert("オーナーは最低1人必要です。"); return; }
+        if (!confirm(p.name + " さんを一覧から削除しますか？（過去のシフト記録は残ります）")) return;
+        STAFF = STAFF.filter(function (x) { return x.id !== id; });
+        saveStaff(); pushStaff();
+        if (currentUser && currentUser.id === id) { logout(); return; }
+        render();
+      }
+      function addMember() {
+        STAFF.push({ id: newMemberId(), name: "新しいメンバー", role: "スタッフ", wage: 1000, worker: true });
+        saveStaff(); pushStaff(); renderManage();
+      }
+
+      // ═══════════════ 希望提出の締切 ═══════════════
+      // 毎月「締切日」までに翌月分の希望を出す運用。締切日と対象月・残り日数を表示する。
+      function nextDeadline() {
+        var d = settings().deadlineDay || 25;
+        var base = new Date(); base.setHours(0, 0, 0, 0);
+        var y = base.getFullYear(), m = base.getMonth(), day = base.getDate();
+        var dmIdx = m + (day > d ? 1 : 0);          // 締切日を過ぎたら次の月へ
+        var deadline = new Date(y, dmIdx, d);
+        var target = new Date(y, dmIdx + 1, 1);      // 締切の対象＝その翌月分
+        var daysLeft = Math.round((deadline - base) / 86400000);
+        return { deadline: deadline, target: target, daysLeft: daysLeft, day: d };
+      }
+      function renderDeadline() {
+        var nd = nextDeadline(), el = document.getElementById("deadlineNotice");
+        var targetLabel = nd.target.getFullYear() + "年" + (nd.target.getMonth() + 1) + "月";
+        var dl = (nd.deadline.getMonth() + 1) + "/" + nd.deadline.getDate();
+        var left = nd.daysLeft > 0 ? "あと" + nd.daysLeft + "日" : (nd.daysLeft === 0 ? "本日締切" : "締切をすぎています");
+        var main = "📅 <b>" + targetLabel + "分</b>の希望シフト提出は <b>" + dl + "</b> まで（" + left + "）";
+        var extra = "";
+        if (currentUser.owner) {
+          var shifts = loadShifts();
+          var tkey = nd.target.getFullYear() + "-" + pad(nd.target.getMonth() + 1);
+          var pending = workers().filter(function (p) {
+            if (p.owner) return false;
+            var has = Object.keys(shifts).some(function (k) { return k.indexOf(tkey) === 0 && shifts[k][p.id]; });
+            return !has;
+          }).map(function (p) { return p.name; });
+          extra = "<div class='notice-sub'>未提出：" + (pending.length ? "<b>" + pending.join("・") + "</b> さん" : "なし（全員提出済み）") +
+            " ｜ 締切日 <select id='deadlineDaySel'></select></div>";
+        }
+        el.innerHTML = main + extra;
+        if (currentUser.owner) {
+          var sel = document.getElementById("deadlineDaySel"), opts = "";
+          [10, 15, 20, 25, 28].forEach(function (v) { opts += "<option value='" + v + "'" + (v === nd.day ? " selected" : "") + ">" + v + "日</option>"; });
+          sel.innerHTML = opts;
+          sel.onchange = function () { settings().deadlineDay = parseInt(this.value, 10); saveSettings(); pushSafe("saveSettings", { closingDay: settings().closingDay, deadlineDay: settings().deadlineDay }); renderDeadline(); };
+        }
+      }
+
+      // ═══════════════ シフト入力モーダル ═══════════════
+      // 時刻入力は「時」と「分」を別プルダウンにし、5分刻みで細かく入力できるようにする。
+      // 時は 12〜翌6時（24以上は「翌◯」表示）、分は 00〜55 の5分刻み。
+      var HOUR_OPTS = (function () { var s = ""; for (var v = 12; v <= 30; v++) { s += "<option value='" + v + "'>" + (v >= 24 ? "翌" + (v - 24) : v) + "</option>"; } return s; })();
+      var MIN_OPTS = (function () { var s = ""; for (var v = 0; v < 60; v += 5) { s += "<option value='" + v + "'>" + pad(v) + "</option>"; } return s; })();
+      function fillHM(hSel, mSel) { hSel.innerHTML = HOUR_OPTS; mSel.innerHTML = MIN_OPTS; }
+      function getHM(hSel, mSel) { return pad(parseInt(hSel.value, 10)) + ":" + pad(parseInt(mSel.value, 10)); }
+      function setHM(hSel, mSel, val) { var p = (val || "18:00").split(":"); hSel.value = String(parseInt(p[0], 10)); mSel.value = String(parseInt(p[1], 10)); }
+      // 実働時間を「6h」「6h30m」のように見やすく表示する
+      function fmtDur(h) { var t = Math.round(h * 60), H = Math.floor(t / 60), M = t % 60; return M ? H + "h" + pad(M) + "m" : H + "h"; }
+      function loadIntoModal(sid, dateISO) {
+        var shifts = loadShifts(), rec = shifts[dateISO] && shifts[dateISO][sid];
+        document.getElementById("offCheck").checked = !!(rec && rec.off);
+        setHM(document.getElementById("startH"), document.getElementById("startM"), (rec && rec.start) || "18:00");
+        setHM(document.getElementById("endH"), document.getElementById("endM"), (rec && rec.end) || "24:00");
+        document.getElementById("breakTime").value = String((rec && rec.break) || 0);
+        document.getElementById("modalDelete").style.display = rec ? "inline-block" : "none";
+        toggleOff();
+      }
+      function openModal(sid, dateISO) {
+        editing = { date: dateISO };
+        var isOwner = currentUser.owner, memberRow = document.getElementById("memberRow");
+        if (isOwner) {
+          memberRow.style.display = "block";
+          var sel = document.getElementById("memberSelect"); sel.innerHTML = "";
+          workers().forEach(function (p) { sel.insertAdjacentHTML("beforeend", "<option value='" + p.id + "'>" + p.name + "</option>"); });
+          sel.value = sid || sel.options[0].value;
+        } else { memberRow.style.display = "none"; }
+        var effSid = isOwner ? document.getElementById("memberSelect").value : currentUser.id;
+        var d = new Date(dateISO), dow = DOW[(d.getDay() + 6) % 7];
+        document.getElementById("modalSub").textContent = (d.getMonth() + 1) + "月" + d.getDate() + "日（" + dow + "）";
+        document.getElementById("modalTitle").textContent = isOwner ? "シフトを入力（確定）" : "シフト希望を入力";
+        loadIntoModal(effSid, dateISO);
+        document.getElementById("modalBg").classList.add("show");
+      }
+      function closeModal() { document.getElementById("modalBg").classList.remove("show"); editing = null; }
+      function toggleOff() {
+        var off = document.getElementById("offCheck").checked;
+        document.getElementById("timeInputs").style.opacity = off ? ".35" : "1";
+        document.getElementById("timeInputs").style.pointerEvents = off ? "none" : "auto";
+      }
+      function currentModalSid() { return currentUser.owner ? document.getElementById("memberSelect").value : currentUser.id; }
+      function saveModal() {
+        if (!editing) return;
+        var date = editing.date, sid = currentModalSid();
+        var rec = {
+          start: getHM(document.getElementById("startH"), document.getElementById("startM")),
+          end: getHM(document.getElementById("endH"), document.getElementById("endM")),
+          break: parseInt(document.getElementById("breakTime").value, 10) || 0,
+          off: document.getElementById("offCheck").checked,
+          status: currentUser.owner ? "confirmed" : "requested"
+        };
+        var shifts = loadShifts(); if (!shifts[date]) shifts[date] = {};
+        shifts[date][sid] = rec;
+        saveShifts(shifts);
+        pushSafe("saveShift", { date: date, staffId: sid, rec: rec });
+        closeModal(); render();
+      }
+      function deleteModal() {
+        if (!editing) return;
+        var date = editing.date, sid = currentModalSid();
+        var shifts = loadShifts();
+        if (shifts[date]) { delete shifts[date][sid]; saveShifts(shifts); }
+        pushSafe("deleteShift", { date: date, staffId: sid });
+        closeModal(); render();
+      }
+
+      // ═══════════════ まとめて申請 ═══════════════
+      function enterSelectMode() {
+        selectMode = true; selectedDays = {};
+        document.getElementById("batchPanel").style.display = "block";
+        document.getElementById("batchCount").textContent = "0";
+        document.getElementById("batchBtn").textContent = "選択中…";
+        // オーナーは対象メンバーを選ぶ
+        var wrap = document.getElementById("batchMemberWrap");
+        if (currentUser.owner) {
+          wrap.style.display = "inline"; var sel = document.getElementById("batchMember"); sel.innerHTML = "";
+          workers().forEach(function (p) { sel.insertAdjacentHTML("beforeend", "<option value='" + p.id + "'>" + p.name + "</option>"); });
+        } else { wrap.style.display = "none"; }
+        renderCalendar();
+      }
+      function exitSelectMode() {
+        selectMode = false; selectedDays = {};
+        document.getElementById("batchPanel").style.display = "none";
+        document.getElementById("batchBtn").textContent = "＋ まとめて申請";
+      }
+      function batchApply() {
+        var days = Object.keys(selectedDays);
+        if (!days.length) { alert("カレンダーで日を選んでください。"); return; }
+        var sid = currentUser.owner ? document.getElementById("batchMember").value : currentUser.id;
+        var off = document.getElementById("batchOff").checked;
+        var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, off: off, status: currentUser.owner ? "confirmed" : "requested" };
+        var shifts = loadShifts();
+        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, off: rec.off, status: rec.status }; shifts[k][sid] = r; pushSafe("saveShift", { date: k, staffId: sid, rec: r }); });
+        saveShifts(shifts);
+        var name = STAFF.filter(function (p) { return p.id === sid; })[0].name;
+        exitSelectMode(); render();
+        alert(name + " さんの " + days.length + "日分を" + (off ? "「休み」で" : "「" + rec.start + "〜" + rec.end + "」で") + "申請しました。");
+      }
+      function toggleBatchOff() {
+        var off = document.getElementById("batchOff").checked;
+        document.getElementById("batchTimeWrap").style.opacity = off ? ".35" : "1";
+        document.getElementById("batchTimeWrap").style.pointerEvents = off ? "none" : "auto";
+      }
+
+      // ═══════════════ オーナー：範囲を確定 ═══════════════
+      function confirmRange() {
+        var shifts = loadShifts(), ds = visibleDates();
+        ds.forEach(function (d) {
+          var day = shifts[iso(d)]; if (day) Object.keys(day).forEach(function (sid) { day[sid].status = "confirmed"; });
+        });
+        saveShifts(shifts);
+        pushSafe("confirmRange", { start: iso(ds[0]), end: iso(ds[ds.length - 1]) });
+        render();
+        alert((viewMode === "week" ? "この週" : focusMonthLabel()) + "のシフトを全員分「確定」にしました。");
+      }
+
+      // ═══════════════ イベント ═══════════════
+      document.getElementById("switchBtn").onclick = function () { exitSelectMode(); logout(); };
+      document.getElementById("weekModeBtn").onclick = function () { viewMode = "week"; exitSelectMode(); render(); };
+      document.getElementById("monthModeBtn").onclick = function () { viewMode = "month"; exitSelectMode(); render(); };
+      document.getElementById("prevBtn").onclick = function () { if (viewMode === "week") weekOffset--; else monthOffset--; exitSelectMode(); render(); };
+      document.getElementById("nextBtn").onclick = function () { if (viewMode === "week") weekOffset++; else monthOffset++; exitSelectMode(); render(); };
+      document.getElementById("confirmBtn").onclick = confirmRange;
+      document.getElementById("batchBtn").onclick = function () { if (selectMode) exitSelectMode(); else enterSelectMode(); };
+      document.getElementById("batchCancel").onclick = exitSelectMode;
+      document.getElementById("batchApply").onclick = batchApply;
+      document.getElementById("batchOff").onchange = toggleBatchOff;
+      document.getElementById("noteSave").onclick = saveNote;
+      document.getElementById("modalCancel").onclick = closeModal;
+      document.getElementById("modalSave").onclick = saveModal;
+      document.getElementById("modalDelete").onclick = deleteModal;
+      document.getElementById("offCheck").onchange = toggleOff;
+      document.getElementById("memberSelect").onchange = function () { loadIntoModal(this.value, editing.date); };
+      document.getElementById("modalBg").onclick = function (e) { if (e.target === this) closeModal(); };
+      document.getElementById("closingDay").onchange = function () { settings().closingDay = this.value; saveSettings(); pushSafe("saveSettings", { closingDay: settings().closingDay, deadlineDay: settings().deadlineDay }); salaryOffset = 0; renderSalary(); };
+      document.getElementById("salPrev").onclick = function () { salaryOffset--; renderSalary(); };
+      document.getElementById("salNext").onclick = function () { salaryOffset++; renderSalary(); };
+      document.getElementById("salCopy").onclick = copyPayslip;
+      document.getElementById("addMember").onclick = addMember;
+      document.getElementById("refreshBtn").onclick = refresh;
+      document.getElementById("setupBtn").onclick = setupConnection;
+      document.getElementById("unlockBtn").onclick = openPinModal;
+      document.getElementById("unlockBtn2").onclick = openPinModal;
+      document.getElementById("pinOk").onclick = submitPin;
+      document.getElementById("pinCancel").onclick = closePinModal;
+      document.getElementById("pinInput").addEventListener("keydown", function (e) { if (e.key === "Enter") submitPin(); });
+      document.getElementById("pinModalBg").onclick = function (e) { if (e.target === this) closePinModal(); };
+      document.getElementById("forgetPin").onclick = forgetPin;
+
+      // ═══════════════ 起動 ═══════════════
+      fillHM(document.getElementById("startH"), document.getElementById("startM"));
+      fillHM(document.getElementById("endH"), document.getElementById("endM"));
+      fillHM(document.getElementById("batchStartH"), document.getElementById("batchStartM"));
+      fillHM(document.getElementById("batchEndH"), document.getElementById("batchEndM"));
+      setHM(document.getElementById("startH"), document.getElementById("startM"), "18:00");
+      setHM(document.getElementById("endH"), document.getElementById("endM"), "24:00");
+      setHM(document.getElementById("batchStartH"), document.getElementById("batchStartM"), "18:00");
+      setHM(document.getElementById("batchEndH"), document.getElementById("batchEndM"), "24:00");
+      renderLogin();
+      updateConnBadge();
+      // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）
+      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { toast("接続に失敗。ローカル表示中です。"); }); }
+      startAutoRefresh();  // 60秒ごとの自動更新を開始
+    </script>
+  </body>
+</html>
