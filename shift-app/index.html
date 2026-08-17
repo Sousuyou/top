@@ -524,7 +524,27 @@
       function flushRetry() {
         if (!CONNECTED || !retryQueue.length) return;
         var q = retryQueue; retryQueue = [];
-        q.forEach(function (item) { pushSafe(item.action, item.payload); });
+        bulkPush(q.map(function (item) { return item.payload; }), "未同期ぶんを再送しました");
+      }
+      // 複数件の書き込みは、同時に送りすぎるとサーバー(GAS)が一部取りこぼすため、
+      // 最大3件ずつ順番に送る。失敗ぶんは再送キューに積む。まとめ同期中は自動更新を止める。
+      function bulkPush(items, doneMsg) {
+        if (!CONNECTED || !items || !items.length) return;
+        pendingPush++;
+        var idx = 0, done = 0, failed = 0, CONC = 3;
+        function step() {
+          if (idx >= items.length) return;
+          var it = items[idx++];
+          api("saveShift", it).then(function (res) {
+            if (!res || !res.ok) { failed++; retryQueue.push({ action: "saveShift", payload: it }); }
+          }).catch(function () { failed++; retryQueue.push({ action: "saveShift", payload: it }); })
+            .then(function () {
+              done++;
+              if (done < items.length) { toast("同期中… " + done + "/" + items.length); step(); }
+              else { pendingPush--; toast(failed ? (failed + "件が未同期。🔄で再送します。") : (doneMsg || "同期しました")); }
+            });
+        }
+        for (var c = 0; c < Math.min(CONC, items.length); c++) step();
       }
       // サーバーから全データを取得してメモリに反映（給料は含まれない）
       function pullAll() {
@@ -727,7 +747,7 @@
           var b = document.createElement("button");
           b.className = "person-btn" + (p.owner ? " owner" : "");
           b.innerHTML = '<span class="avatar">' + p.name.charAt(0) + "</span>" +
-            '<span class="who">' + p.name + "<small>" + p.role + (p.owner ? "（給料が見られます）" : "") + "</small></span>";
+            '<span class="who">' + p.name + (p.owner ? "<small>オーナー</small>" : "") + "</span>";
           b.onclick = function () { login(p.id); };
           box.appendChild(b);
         });
@@ -811,7 +831,7 @@
         workers().forEach(function (p) {
           var isMe = currentUser.id === p.id;
           body += "<tr class='" + (isMe ? "me-row" : "") + "'>";
-          body += "<td class='namecell'>" + p.name + (isMe ? " <small>（あなた）</small>" : "<small>" + p.role + "</small>") + "</td>";
+          body += "<td class='namecell'>" + p.name + (isMe ? " <small>（あなた）</small>" : (p.owner ? " <small>オーナー</small>" : "")) + "</td>";
           ds.forEach(function (d) {
             var k = iso(d), rec = shifts[k] && shifts[k][p.id], canEdit = isOwner || isMe;
             body += "<td>" + cellHtml(rec, canEdit, p.id, k) + "</td>";
@@ -1155,11 +1175,13 @@
         var off = document.getElementById("batchOff").checked;
         var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, off: off, status: currentUser.owner ? "confirmed" : "requested" };
         var shifts = loadShifts();
-        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, off: rec.off, status: rec.status }; shifts[k][sid] = r; pushSafe("saveShift", { date: k, staffId: sid, rec: r }); });
+        var items = [];
+        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, off: rec.off, status: rec.status }; shifts[k][sid] = r; items.push({ date: k, staffId: sid, rec: r }); });
         saveShifts(shifts);
         var name = STAFF.filter(function (p) { return p.id === sid; })[0].name;
         exitSelectMode(); render();
         alert(name + " さんの " + days.length + "日分を" + (off ? "「休み」で" : "「" + rec.start + "〜" + rec.end + "」で") + "申請しました。");
+        bulkPush(items, name + " さんの " + items.length + "日分を保存しました");   // 少数ずつ順に確実に同期
       }
       function toggleBatchOff() {
         var off = document.getElementById("batchOff").checked;
