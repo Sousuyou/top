@@ -18,6 +18,7 @@
     { name: "早見表", url: BASE + "gin-textbook/cheatsheet/", kw: "早見表 チートシート 一覧" },
     { name: "ジンニュース", url: BASE + "gin-news/", kw: "ニュース 最新 新商品" },
     { name: "営業投稿メーカー", url: BASE + "post-maker/", kw: "投稿 営業 LINE ライン 文章 告知 おすすめ 挨拶 メーカー 集客 SNS" },
+    { name: "勤怠管理", url: BASE + "shift-app/", kw: "勤怠 シフト 勤務 給料 給与 スタッフ 深夜割増 バイト アルバイト 出勤 休み 締め日 明細" },
   ];
 
   function esc(s) {
