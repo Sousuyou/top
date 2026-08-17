@@ -502,6 +502,7 @@
       var BAKED_URL = "https://script.google.com/macros/s/AKfycbyC13mL8XYJM77AYxv5U-UbSVMn9jOxVV33CmsjH_1aes6xsZUZ_WaCClpcHVrH4PLYOA/exec";
       var GAS_URL = store.read("gas_url", "") || BAKED_URL;
       var CONNECTED = !!GAS_URL;
+      var _loaded = false;          // サーバーから初回データを取得済みか（読み込み中表示の判定に使う）
       var salaryUnlocked = false;   // 給料の暗証番号(PIN)を通したか
       var _pin = store.read("owner_pin", "") || "";  // 通ったPIN（メンバー編集の保存に使う／端末保存にも対応）
       function salaryVisible() { return !CONNECTED || salaryUnlocked; }
@@ -541,6 +542,7 @@
             var found = STAFF.filter(function (p) { return p.id === currentUser.id; })[0];
             if (found) currentUser = found; else logout();
           }
+          _loaded = true;
           return true;
         });
       }
@@ -718,7 +720,9 @@
 
       // ═══════════════ ログイン ═══════════════
       function renderLogin() {
-        var box = document.getElementById("peopleList"); box.innerHTML = "";
+        var box = document.getElementById("peopleList");
+        if (CONNECTED && !_loaded) { box.innerHTML = "<div style='padding:26px 8px;color:var(--muted);font-size:14px'>🔄 スプレッドシートから読み込み中…</div>"; return; }
+        box.innerHTML = "";
         STAFF.forEach(function (p) {
           var b = document.createElement("button");
           b.className = "person-btn" + (p.owner ? " owner" : "");
@@ -1220,7 +1224,7 @@
       renderLogin();
       updateConnBadge();
       // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）
-      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { toast("接続に失敗。ローカル表示中です。"); }); }
+      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { _loaded = true; renderLogin(); toast("接続に失敗しました。🔄で再読み込みしてください。"); }); }
       startAutoRefresh();  // 60秒ごとの自動更新を開始
     </script>
   </body>
