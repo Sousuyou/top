@@ -60,6 +60,7 @@
     { label: "早見表",       path: "gin-textbook/cheatsheet/" },
     { label: "原価計算",    path: "cocktail-cost-tool/" },
     { label: "投稿メーカー", path: "post-maker/" },
+    { label: "勤怠管理",    path: "shift-app/" },
   ];
 
   // スマホ表示ではナビを2段（グリッド）に折り返し、横スクロールせず全タブを見せる。
