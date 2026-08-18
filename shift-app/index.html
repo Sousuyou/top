@@ -26,6 +26,7 @@
         --gold-soft: #f4ecd8;
         --blue: #3b6ea5;
         --red: #a72821;
+        --red-soft: #f6e5e4;
         --shadow: 0 18px 42px rgba(30, 30, 27, 0.08);
       }
       @media (prefers-color-scheme: dark) {
@@ -46,6 +47,7 @@
           --gold-soft: #2c2717;
           --blue: #7fa8d4;
           --red: #d8736c;
+          --red-soft: #2e1a18;
           --shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
         }
       }
@@ -138,6 +140,14 @@
       .cell { min-height: 40px; border-radius: 8px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
       .cell.editable { cursor: pointer; }
       .cell.editable:hover { background: var(--field-active); outline: 2px dashed var(--line); }
+      /* 週表も色分け：未承認=薄い ／ 確定=濃い緑 ／ 自分の確定=赤 */
+      .cell.requested { background: var(--panel-soft); }
+      .cell.requested .time { color: var(--muted); font-weight: 600; }
+      .cell.confirmed { background: var(--green-soft); }
+      .cell.confirmed .time { color: var(--green); }
+      .cell.requested.mine .time { color: var(--red); }
+      .cell.confirmed.mine { background: var(--red-soft); }
+      .cell.confirmed.mine .time { color: var(--red); }
       .time { font-weight: 700; font-size: 13px; white-space: nowrap; }
       .off { color: var(--muted); font-size: 12px; }
       .empty { color: var(--line); font-size: 16px; }
@@ -162,10 +172,13 @@
       .cal-cnt.c1 { background: var(--gold-soft); color: var(--gold); border: 1px solid var(--gold); }
       .cal-cnt.c2 { background: var(--green-soft); color: var(--green); }
       .chip { font-size: 10px; line-height: 1.35; border-radius: 5px; padding: 1px 5px; background: var(--panel-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid var(--line); }
-      .chip.mine { background: var(--green-soft); color: var(--green); font-weight: 700; }
-      .chip.confirmed { border-left-color: var(--green); }
-      .chip.requested { border-left-color: var(--gold); }
-      .chip.off { color: var(--muted); font-style: italic; }
+      /* 未承認(希望)=薄い ／ 確定=濃い ／ 自分の確定=赤 */
+      .chip.requested { background: var(--panel-soft); color: var(--muted); border-left-color: var(--gold); border-left-style: dashed; }
+      .chip.confirmed { background: var(--green-soft); color: var(--green); border-left-color: var(--green); font-weight: 700; }
+      .chip.requested.mine { color: var(--red); border-left-color: var(--red); }
+      .chip.confirmed.mine { background: var(--red-soft); color: var(--red); border-left-color: var(--red); font-weight: 800; }
+      .chip.off { background: var(--panel-soft); color: var(--muted); font-style: italic; border-left-color: var(--line); }
+      .chip.off.mine { color: var(--red); }
 
       .hint { font-size: 12px; color: var(--muted); padding: 10px 16px 4px; }
 
@@ -240,6 +253,16 @@
       .mrow .m-name { flex: 1; min-width: 110px; }
       .mrow .m-wagewrap { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
       .mrow .m-wage { width: 84px; }
+
+      /* ── その日の登録者一覧 ── */
+      .dl-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+      .dl-row:last-child { border-bottom: none; }
+      .dl-name { font-weight: 700; min-width: 74px; }
+      .dl-info { flex: 1; }
+      .dl-time { font-variant-numeric: tabular-nums; }
+      .dl-off { color: var(--muted); }
+      .dl-edit { margin-left: auto; }
+      .dl-empty { color: var(--muted); font-size: 14px; padding: 14px 0; text-align: center; }
 
       /* ── 個人別サマリー ── */
       .summary-card { padding: 14px 16px; }
@@ -438,6 +461,16 @@
           <button class="ghost" id="pinCancel">キャンセル</button>
           <button class="primary" id="pinOk">表示する</button>
         </div>
+      </div>
+    </div>
+
+    <!-- その日の登録者一覧 -->
+    <div class="modal-bg" id="dayModalBg">
+      <div class="modal">
+        <h3 id="dayModalTitle">シフト</h3>
+        <div id="dayModalList"></div>
+        <div id="dayModalAdd" style="margin-top: 12px"></div>
+        <div class="actions"><button class="ghost" id="dayModalClose">閉じる</button></div>
       </div>
     </div>
 
@@ -883,7 +916,7 @@
           body += "<td class='namecell'>" + p.name + (isMe ? " <small>（あなた）</small>" : (p.owner ? " <small>オーナー</small>" : "")) + "</td>";
           ds.forEach(function (d) {
             var k = iso(d), rec = shifts[k] && shifts[k][p.id], canEdit = isOwner || isMe;
-            body += "<td>" + cellHtml(rec, canEdit, p.id, k) + "</td>";
+            body += "<td>" + cellHtml(rec, canEdit, p.id, k, isMe) + "</td>";
           });
           body += "</tr>";
         });
@@ -893,8 +926,9 @@
           c.onclick = function () { openModal(c.getAttribute("data-sid"), c.getAttribute("data-date")); };
         });
       }
-      function cellHtml(rec, canEdit, sid, dateISO) {
+      function cellHtml(rec, canEdit, sid, dateISO, isMe) {
         var cls = "cell" + (canEdit ? " editable" : "");
+        if (rec && !rec.off) cls += " " + rec.status + (isMe ? " mine" : "");   // 未承認/確定/自分 の色分け
         var attr = " data-sid='" + sid + "' data-date='" + dateISO + "'", inner;
         if (!rec) inner = "<span class='empty'>＋</span>";
         else if (rec.off) inner = "<span class='off'>休み</span>";
@@ -943,8 +977,42 @@
           document.getElementById("batchCount").textContent = Object.keys(selectedDays).length;
           renderCalendar();
         } else {
-          openModal(currentUser.owner ? null : currentUser.id, dateISO);
+          openDayModal(dateISO);   // その日の登録者一覧を開く（プルダウン不要）
         }
+      }
+      // ── その日の登録者一覧 ──
+      var dayModalDate = null;
+      function openDayModal(dateISO) {
+        dayModalDate = dateISO;
+        var d = new Date(dateISO), dow = DOW[(d.getDay() + 6) % 7];
+        document.getElementById("dayModalTitle").textContent = (d.getMonth() + 1) + "月" + d.getDate() + "日（" + dow + "）のシフト";
+        renderDayList();
+        document.getElementById("dayModalBg").classList.add("show");
+      }
+      function closeDayModal() { document.getElementById("dayModalBg").classList.remove("show"); dayModalDate = null; }
+      function renderDayList() {
+        if (!dayModalDate) return;
+        var shifts = loadShifts(), day = shifts[dayModalDate] || {}, isOwner = currentUser.owner, html = "", any = false;
+        workers().forEach(function (p) {
+          var rec = day[p.id]; if (!rec) return;
+          any = true;
+          var canEdit = isOwner || currentUser.id === p.id;
+          var info = rec.off
+            ? "<span class='dl-off'>休み</span>"
+            : "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> <span class='status " + rec.status + "'>" + (rec.status === "confirmed" ? "確定" : "希望") + "</span>";
+          html += "<div class='dl-row'><span class='dl-name'>" + p.name + (currentUser.id === p.id ? "（あなた）" : "") + "</span><span class='dl-info'>" + info + "</span>" +
+            (canEdit ? "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>" : "") + "</div>";
+        });
+        if (!any) html = "<div class='dl-empty'>この日はまだ誰も登録されていません。</div>";
+        document.getElementById("dayModalList").innerHTML = html;
+        var addWrap = document.getElementById("dayModalAdd"); addWrap.innerHTML = "";
+        if (isOwner) addWrap.innerHTML = "<button class='small gold dl-add'>＋ この日にメンバーを追加</button>";
+        else if (!day[currentUser.id]) addWrap.innerHTML = "<button class='small gold dl-add-self'>＋ 自分のシフトを入れる</button>";
+        Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-edit"), function (b) {
+          b.onclick = function () { openModal(b.getAttribute("data-sid"), dayModalDate); };
+        });
+        var a1 = addWrap.querySelector(".dl-add"); if (a1) a1.onclick = function () { openModal(null, dayModalDate); };
+        var a2 = addWrap.querySelector(".dl-add-self"); if (a2) a2.onclick = function () { openModal(currentUser.id, dayModalDate); };
       }
 
       // ═══════════════ 給与明細（オーナー専用・締め日で区切る）═══════════════
@@ -1200,7 +1268,7 @@
         shifts[date][sid] = rec;
         saveShifts(shifts);
         pushSafe("saveShift", { date: date, staffId: sid, rec: rec });
-        closeModal(); render();
+        closeModal(); render(); if (dayModalDate) renderDayList();
       }
       function deleteModal() {
         if (!editing) return;
@@ -1208,7 +1276,7 @@
         var shifts = loadShifts();
         if (shifts[date]) { delete shifts[date][sid]; saveShifts(shifts); }
         pushSafe("deleteShift", { date: date, staffId: sid });
-        closeModal(); render();
+        closeModal(); render(); if (dayModalDate) renderDayList();
       }
 
       // ═══════════════ まとめて申請 ═══════════════
@@ -1282,6 +1350,8 @@
       document.getElementById("offCheck").onchange = toggleOff;
       document.getElementById("memberSelect").onchange = function () { loadIntoModal(this.value, editing.date); };
       document.getElementById("modalBg").onclick = function (e) { if (e.target === this) closeModal(); };
+      document.getElementById("dayModalClose").onclick = closeDayModal;
+      document.getElementById("dayModalBg").onclick = function (e) { if (e.target === this) closeDayModal(); };
       document.getElementById("closingDay").onchange = function () { settings().closingDay = this.value; saveSettings(); pushSafe("saveSettings", { closingDay: settings().closingDay, deadlineDay: settings().deadlineDay }); salaryOffset = 0; renderSalary(); };
       document.getElementById("salPrev").onclick = function () { salaryOffset--; renderSalary(); };
       document.getElementById("salNext").onclick = function () { salaryOffset++; renderSalary(); };
