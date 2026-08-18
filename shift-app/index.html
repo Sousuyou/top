@@ -140,6 +140,7 @@
       .cell { min-height: 40px; border-radius: 8px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
       .cell.editable { cursor: pointer; }
       .cell.editable:hover { background: var(--field-active); outline: 2px dashed var(--line); }
+      .cell.cellsel { outline: 2px solid var(--gold) !important; background: var(--gold-soft) !important; }
       /* 週表も色分け：未承認=薄い ／ 確定=濃い緑 ／ 自分の確定=赤 */
       .cell.requested { background: var(--panel-soft); }
       .cell.requested .time { color: var(--muted); font-weight: 600; }
@@ -345,6 +346,7 @@
           <div class="card-head">
             <h3 id="shiftTitle">シフト</h3>
             <div class="head-actions">
+              <button class="small gold" id="cellBatchBtn" style="display:none">＋ まとめて編集</button>
               <button class="small gold" id="batchBtn" style="display:none">＋ まとめて申請</button>
               <button class="small primary" id="confirmBtn" style="display:none">確定する</button>
             </div>
@@ -368,6 +370,27 @@
             <div class="batch-actions">
               <button class="small ghost" id="batchCancel">やめる</button>
               <button class="small gold" id="batchApply">選択した日にまとめて申請</button>
+            </div>
+          </div>
+
+          <!-- まとめて編集パネル（週表の複数マス） -->
+          <div class="batch-panel" id="cellBatchPanel" style="display:none">
+            <div class="brow">
+              <span class="bcount"><span id="cellBatchCount">0</span>マス 選択中</span>
+              <span class="batch-off"><input type="checkbox" id="cellBatchOff" /><label for="cellBatchOff" style="margin:0">休みにする</label></span>
+              <span id="cellBatchTimeWrap"><label>時間</label>
+                <span class="hm"><select id="cellBatchStartH"></select><span>:</span><select id="cellBatchStartM"></select></span> 〜
+                <span class="hm"><select id="cellBatchEndH"></select><span>:</span><select id="cellBatchEndM"></select></span>
+                <label style="margin-left:8px">休憩</label>
+                <select id="cellBatchBreak">
+                  <option value="0">なし</option><option value="15">15分</option><option value="30">30分</option><option value="45">45分</option><option value="60">60分</option><option value="90">90分</option>
+                </select>
+              </span>
+            </div>
+            <div class="batch-actions">
+              <button class="small ghost" id="cellBatchCancel">やめる</button>
+              <button class="small" id="cellBatchDelete">選択を削除</button>
+              <button class="small gold" id="cellBatchApply">選択したマスに適用</button>
             </div>
           </div>
 
@@ -709,8 +732,10 @@
       var weekOffset = 0;
       var monthOffset = 0;
       var editing = null;        // {sid, date}
-      var selectMode = false;    // まとめて申請の選択モード
+      var selectMode = false;    // まとめて申請の選択モード（月カレンダー）
       var selectedDays = {};     // { dateISO: true }
+      var cellSelectMode = false; // まとめて編集の選択モード（週表の複数マス）
+      var selectedCells = {};    // { "sid|date": {sid,date} }
 
       // ── 日付ユーティリティ（週は月曜はじまり） ──
       function pad(n) { return String(n).padStart(2, "0"); }
@@ -865,6 +890,8 @@
 
         // まとめて申請ボタンは月表示のときだけ（複数日を選ぶため）
         document.getElementById("batchBtn").style.display = viewMode === "month" ? "inline-block" : "none";
+        // まとめて編集ボタンは週表示のときだけ（複数マスを選ぶため）
+        document.getElementById("cellBatchBtn").style.display = viewMode === "week" ? "inline-block" : "none";
         // 確定ボタンはオーナーのみ
         var confirmBtn = document.getElementById("confirmBtn");
         confirmBtn.style.display = isOwner ? "inline-block" : "none";
@@ -923,8 +950,20 @@
         body += "</tbody>";
         t.innerHTML = head + body;
         Array.prototype.forEach.call(t.querySelectorAll(".cell.editable"), function (c) {
-          c.onclick = function () { openModal(c.getAttribute("data-sid"), c.getAttribute("data-date")); };
+          var sid = c.getAttribute("data-sid"), date = c.getAttribute("data-date");
+          if (cellSelectMode) {
+            if (selectedCells[sid + "|" + date]) c.classList.add("cellsel");
+            c.onclick = function () { toggleCell(sid, date); };
+          } else {
+            c.onclick = function () { openModal(sid, date); };
+          }
         });
+      }
+      function toggleCell(sid, date) {
+        var key = sid + "|" + date;
+        if (selectedCells[key]) delete selectedCells[key]; else selectedCells[key] = { sid: sid, date: date };
+        document.getElementById("cellBatchCount").textContent = Object.keys(selectedCells).length;
+        renderTable();
       }
       function cellHtml(rec, canEdit, sid, dateISO, isMe) {
         var cls = "cell" + (canEdit ? " editable" : "");
@@ -1320,6 +1359,61 @@
         document.getElementById("batchTimeWrap").style.pointerEvents = off ? "none" : "auto";
       }
 
+      // ═══════════════ まとめて編集（週表の複数マス） ═══════════════
+      function enterCellMode() {
+        cellSelectMode = true; selectedCells = {};
+        document.getElementById("cellBatchPanel").style.display = "block";
+        document.getElementById("cellBatchCount").textContent = "0";
+        document.getElementById("cellBatchBtn").textContent = "選択中…";
+        renderTable();
+      }
+      function exitCellMode() {
+        cellSelectMode = false; selectedCells = {};
+        document.getElementById("cellBatchPanel").style.display = "none";
+        document.getElementById("cellBatchBtn").textContent = "＋ まとめて編集";
+        renderTable();
+      }
+      function toggleCellOff() {
+        var off = document.getElementById("cellBatchOff").checked;
+        document.getElementById("cellBatchTimeWrap").style.opacity = off ? ".35" : "1";
+        document.getElementById("cellBatchTimeWrap").style.pointerEvents = off ? "none" : "auto";
+      }
+      function cellBatchApply() {
+        var keys = Object.keys(selectedCells);
+        if (!keys.length) { alert("マス（枠）をタップして選んでください。"); return; }
+        var off = document.getElementById("cellBatchOff").checked;
+        var start = getHM(document.getElementById("cellBatchStartH"), document.getElementById("cellBatchStartM"));
+        var end = getHM(document.getElementById("cellBatchEndH"), document.getElementById("cellBatchEndM"));
+        var brk = parseInt(document.getElementById("cellBatchBreak").value, 10) || 0;
+        if (!off && toMin(end) <= toMin(start)) { alert("終了は開始より後の時刻にしてください。"); return; }
+        var shifts = loadShifts(), items = [];
+        keys.forEach(function (key) {
+          var c = selectedCells[key];
+          var r = { start: start, end: end, break: brk, off: off, status: currentUser.owner ? "confirmed" : "requested" };
+          if (!shifts[c.date]) shifts[c.date] = {};
+          shifts[c.date][c.sid] = r;
+          items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: r } });
+        });
+        saveShifts(shifts);
+        var n = keys.length; exitCellMode(); render();
+        alert(n + "マスを" + (off ? "「休み」で" : "「" + start + "〜" + end + "」で") + "更新しました。");
+        sendQueue(items, n + "マスを保存しました");
+      }
+      function cellBatchDelete() {
+        var keys = Object.keys(selectedCells);
+        if (!keys.length) { alert("マス（枠）をタップして選んでください。"); return; }
+        if (!confirm(keys.length + "マスのシフトを削除しますか？")) return;
+        var shifts = loadShifts(), items = [];
+        keys.forEach(function (key) {
+          var c = selectedCells[key];
+          if (shifts[c.date]) delete shifts[c.date][c.sid];
+          items.push({ action: "deleteShift", payload: { date: c.date, staffId: c.sid } });
+        });
+        saveShifts(shifts);
+        var n = keys.length; exitCellMode(); render();
+        sendQueue(items, n + "マスを削除しました");
+      }
+
       // ═══════════════ オーナー：範囲を確定 ═══════════════
       function confirmRange() {
         var shifts = loadShifts(), ds = visibleDates();
@@ -1333,16 +1427,21 @@
       }
 
       // ═══════════════ イベント ═══════════════
-      document.getElementById("switchBtn").onclick = function () { exitSelectMode(); logout(); };
-      document.getElementById("weekModeBtn").onclick = function () { viewMode = "week"; exitSelectMode(); render(); };
-      document.getElementById("monthModeBtn").onclick = function () { viewMode = "month"; exitSelectMode(); render(); };
-      document.getElementById("prevBtn").onclick = function () { if (viewMode === "week") weekOffset--; else monthOffset--; exitSelectMode(); render(); };
-      document.getElementById("nextBtn").onclick = function () { if (viewMode === "week") weekOffset++; else monthOffset++; exitSelectMode(); render(); };
+      document.getElementById("switchBtn").onclick = function () { exitSelectMode(); exitCellMode(); logout(); };
+      document.getElementById("weekModeBtn").onclick = function () { viewMode = "week"; exitSelectMode(); exitCellMode(); render(); };
+      document.getElementById("monthModeBtn").onclick = function () { viewMode = "month"; exitSelectMode(); exitCellMode(); render(); };
+      document.getElementById("prevBtn").onclick = function () { if (viewMode === "week") weekOffset--; else monthOffset--; exitSelectMode(); exitCellMode(); render(); };
+      document.getElementById("nextBtn").onclick = function () { if (viewMode === "week") weekOffset++; else monthOffset++; exitSelectMode(); exitCellMode(); render(); };
       document.getElementById("confirmBtn").onclick = confirmRange;
       document.getElementById("batchBtn").onclick = function () { if (selectMode) exitSelectMode(); else enterSelectMode(); };
       document.getElementById("batchCancel").onclick = exitSelectMode;
       document.getElementById("batchApply").onclick = batchApply;
       document.getElementById("batchOff").onchange = toggleBatchOff;
+      document.getElementById("cellBatchBtn").onclick = function () { if (cellSelectMode) exitCellMode(); else enterCellMode(); };
+      document.getElementById("cellBatchCancel").onclick = exitCellMode;
+      document.getElementById("cellBatchApply").onclick = cellBatchApply;
+      document.getElementById("cellBatchDelete").onclick = cellBatchDelete;
+      document.getElementById("cellBatchOff").onchange = toggleCellOff;
       document.getElementById("noteSave").onclick = saveNote;
       document.getElementById("modalCancel").onclick = closeModal;
       document.getElementById("modalSave").onclick = saveModal;
@@ -1376,6 +1475,10 @@
       setHM(document.getElementById("endH"), document.getElementById("endM"), "24:00");
       setHM(document.getElementById("batchStartH"), document.getElementById("batchStartM"), "18:00");
       setHM(document.getElementById("batchEndH"), document.getElementById("batchEndM"), "24:00");
+      fillHM(document.getElementById("cellBatchStartH"), document.getElementById("cellBatchStartM"));
+      fillHM(document.getElementById("cellBatchEndH"), document.getElementById("cellBatchEndM"));
+      setHM(document.getElementById("cellBatchStartH"), document.getElementById("cellBatchStartM"), "18:00");
+      setHM(document.getElementById("cellBatchEndH"), document.getElementById("cellBatchEndM"), "24:00");
       renderLogin();
       updateConnBadge();
       // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）
