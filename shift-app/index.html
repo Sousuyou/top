@@ -265,15 +265,6 @@
       .dl-edit { margin-left: auto; }
       .dl-empty { color: var(--muted); font-size: 14px; padding: 14px 0; text-align: center; }
 
-      /* ── 個人別サマリー ── */
-      .summary-card { padding: 14px 16px; }
-      .sum-head { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
-      .sum-row { display: flex; gap: 10px; }
-      .sum-tile { flex: 1; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; }
-      .sum-n { font-size: 19px; font-weight: 800; }
-      .sum-n small { font-size: 12px; font-weight: 700; margin-left: 1px; }
-      .sum-l { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
       /* ── 接続・同期 UI ── */
       .conn-row { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; }
       .conn-badge { color: var(--muted); }
@@ -402,9 +393,6 @@
           </div>
           <div class="hint" id="editHint"></div>
         </div>
-
-        <!-- 個人別サマリー（今月のあなた） -->
-        <div class="card summary-card" id="summaryCard"></div>
 
         <!-- 希望・備考欄 -->
         <div class="card">
@@ -821,28 +809,6 @@
         return { total: normal + late, normal: normal, late: late, gross: gross, brk: rec.break || 0 };
       }
       function hoursOf(rec) { return splitHours(rec).total; }
-      // 個人別サマリー：表示中の月の「出勤回数・合計実働・深夜」を1人分集計
-      function monthStatsFor(sid) {
-        var d = focusDate(), y = d.getFullYear(), m = d.getMonth();
-        var days = new Date(y, m + 1, 0).getDate(), shifts = loadShifts();
-        var cnt = 0, total = 0, late = 0;
-        for (var n = 1; n <= days; n++) {
-          var rec = shifts[iso(new Date(y, m, n))]; rec = rec && rec[sid];
-          if (rec && !rec.off) { var sp = splitHours(rec); if (sp.total > 0) { cnt++; total += sp.total; late += sp.late; } }
-        }
-        return { cnt: cnt, total: total, late: late, ym: (m + 1) };
-      }
-      function renderSummary() {
-        if (!currentUser) return;
-        var st = monthStatsFor(currentUser.id);
-        document.getElementById("summaryCard").innerHTML =
-          "<div class='sum-head'>📊 " + st.ym + "月のあなた（" + currentUser.name + " さん）</div>" +
-          "<div class='sum-row'>" +
-            "<div class='sum-tile'><div class='sum-n'>" + st.cnt + "<small>回</small></div><div class='sum-l'>出勤</div></div>" +
-            "<div class='sum-tile'><div class='sum-n'>" + fmtDur(st.total) + "</div><div class='sum-l'>合計実働</div></div>" +
-            "<div class='sum-tile'><div class='sum-n'>" + (st.late > 0 ? fmtDur(st.late) : "—") + "</div><div class='sum-l'>うち深夜</div></div>" +
-          "</div>";
-      }
 
       // ═══════════════ ログイン ═══════════════
       function renderLogin() {
@@ -917,7 +883,6 @@
         }
 
         renderDeadline();
-        renderSummary();
         renderNotes();
         updateConnBadge();
 
