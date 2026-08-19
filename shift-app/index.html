@@ -439,7 +439,7 @@
           </div>
           <div id="salaryTableWrap" class="table-scroll"><table class="salary" id="salaryTable"></table></div>
           <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間です。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
-          <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">🔓 給料を隠す（この端末のPIN保存も解除）</button></div>
+          <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">🔓 この端末のパスワード保存を解除</button></div>
         </div>
 
         <!-- メンバー管理（オーナー専用） -->
@@ -466,14 +466,14 @@
     <!-- 暗証番号(PIN)入力モーダル -->
     <div class="modal-bg" id="pinModalBg">
       <div class="modal">
-        <h3>🔒 暗証番号（PIN）</h3>
-        <p class="msub">オーナー専用です。給料を表示します。</p>
-        <input type="password" inputmode="numeric" autocomplete="off" id="pinInput" placeholder="暗証番号" />
-        <label class="off-toggle" style="margin-top:12px"><input type="checkbox" id="pinRemember" checked /> <span style="color:var(--text);font-size:14px">この端末に保存して次回から自動で開く</span></label>
+        <h3>🔒 オーナーのパスワード</h3>
+        <p class="msub">入力するとオーナーとしてログインします（給料・確定・メンバー管理が使えます）。</p>
+        <input type="password" inputmode="numeric" autocomplete="off" id="pinInput" placeholder="パスワード（暗証番号）" />
+        <label class="off-toggle" style="margin-top:12px"><input type="checkbox" id="pinRemember" checked /> <span style="color:var(--text);font-size:14px">この端末に保存して次回から自動でログイン</span></label>
         <div id="pinError" style="color:var(--red);font-size:13px;min-height:18px;margin-top:8px"></div>
         <div class="actions">
           <button class="ghost" id="pinCancel">キャンセル</button>
-          <button class="primary" id="pinOk">表示する</button>
+          <button class="primary" id="pinOk">ログイン</button>
         </div>
       </div>
     </div>
@@ -703,34 +703,27 @@
         document.getElementById("pinModalBg").classList.add("show");
         setTimeout(function () { if (pi) pi.focus(); }, 60);
       }
-      function closePinModal() { document.getElementById("pinModalBg").classList.remove("show"); }
+      function closePinModal() { pendingOwnerId = null; document.getElementById("pinModalBg").classList.remove("show"); }
+      // パスワード送信＝オーナーとしてログインを確定する（パスワード照合は既存のsalary APIを流用）
       function submitPin() {
         var pin = (document.getElementById("pinInput").value || "").trim();
         var pe = document.getElementById("pinError");
-        if (!pin) { pe.textContent = "暗証番号を入力してください"; return; }
+        if (!pin) { pe.textContent = "パスワードを入力してください"; return; }
         pe.textContent = "確認中…";
         api("salary", { pin: pin }).then(function (res) {
           if (res && res.ok) {
-            _pin = pin; salaryUnlocked = true;
-            var w = res.wages || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; });
+            _pin = pin; salaryUnlocked = true; applyWages(res.wages);
             if (document.getElementById("pinRemember").checked) store.write("owner_pin", pin); else store.write("owner_pin", "");
-            closePinModal(); render(); toast("給料を表示しました");
-          } else { pe.textContent = (res && res.error) || "暗証番号が違います"; }
+            document.getElementById("pinModalBg").classList.remove("show");
+            var id = pendingOwnerId; pendingOwnerId = null;
+            if (id) doLogin(id); else render();   // ログイン経由なら続けてログインを確定
+          } else { pe.textContent = (res && res.error) || "パスワードが違います"; }
         }).catch(function () { pe.textContent = "接続エラー。通信状況をご確認ください。"; });
       }
-      // 保存済みPINがあれば自動で解錠する（オーナーのログイン時のみ呼ぶ）
-      function tryAutoUnlock() {
-        var saved = store.read("owner_pin", "") || "";
-        if (!CONNECTED || !saved || salaryUnlocked) return Promise.resolve();
-        return api("salary", { pin: saved }).then(function (res) {
-          if (res && res.ok) { _pin = saved; salaryUnlocked = true; var w = res.wages || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; }); render(); }
-          else { store.write("owner_pin", ""); } // 保存PINが無効ならクリア（PIN変更後など）
-        }).catch(function () {});
-      }
+      // この端末に保存したパスワードを消す（次回のオーナーログインで入力が必要になる）
       function forgetPin() {
-        store.write("owner_pin", ""); _pin = ""; salaryUnlocked = false;
-        if (CONNECTED) STAFF.forEach(function (p) { p.wage = 0; });
-        render(); toast("この端末のPIN保存を解除しました");
+        store.write("owner_pin", "");
+        toast("この端末のパスワード保存を解除しました（次回ログイン時に入力が必要です）");
       }
       function setupConnection() {
         var url = prompt("接続先URL（オーナーから共有されたURL）を貼り付けてください。\n空欄にするとローカル（デモ）に戻ります。", GAS_URL || "");
@@ -857,17 +850,41 @@
           b.className = "person-btn";   // 全員同じ見た目（オーナーを色分け/明示しない）
           b.innerHTML = '<span class="avatar">' + p.name.charAt(0) + "</span>" +
             '<span class="who">' + p.name + "</span>";
-          b.onclick = function () { login(p.id); };
+          b.onclick = function () { attemptLogin(p.id); };
           box.appendChild(b);
         });
       }
-      function login(id) {
+      var pendingOwnerId = null;   // オーナーのパスワード通過後にログインする対象を一時保持
+      function applyWages(w) { w = w || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; }); }
+      // 名前タップ時の入口。オーナーは「パスワード（暗証番号）」を通してからログインする（接続時のみ。
+      // 未接続のデモは照合できないのでそのまま入る）。スタッフは従来どおり即ログイン。
+      function attemptLogin(id) {
+        var p = STAFF.filter(function (x) { return x.id === id; })[0];
+        if (!p) return;
+        if (p.owner && CONNECTED) {
+          var saved = store.read("owner_pin", "") || "";
+          if (saved) {   // 端末に保存されたパスワードで自動ログインを試す
+            api("salary", { pin: saved }).then(function (res) {
+              if (res && res.ok) { _pin = saved; salaryUnlocked = true; applyWages(res.wages); doLogin(id); }
+              else { store.write("owner_pin", ""); openLoginPin(id); }   // パスワード変更後などで無効ならクリアして手入力
+            }).catch(function () { openLoginPin(id); });
+          } else { openLoginPin(id); }
+        } else { doLogin(id); }
+      }
+      function openLoginPin(id) {
+        pendingOwnerId = id;
+        var pe = document.getElementById("pinError"); if (pe) pe.textContent = "";
+        var pi = document.getElementById("pinInput"); if (pi) pi.value = "";
+        document.getElementById("pinModalBg").classList.add("show");
+        setTimeout(function () { if (pi) pi.focus(); }, 60);
+      }
+      function doLogin(id) {
         currentUser = STAFF.filter(function (p) { return p.id === id; })[0];
         document.getElementById("loginView").style.display = "none";
         document.getElementById("appView").style.display = "block";
         exitSelectMode(); exitCellMode(); render();
         // 接続中なら最新データを取り直してから表示を更新（currentUserの取り直しはpullAll内で実施）
-        if (CONNECTED) { pullAll().then(function () { render(); if (currentUser && currentUser.owner) return tryAutoUnlock(); }).catch(function () { toast("最新データの取得に失敗しました"); }); }
+        if (CONNECTED) { pullAll().then(function () { return salaryUnlocked ? fetchWages() : null; }).then(function () { render(); }).catch(function () { toast("最新データの取得に失敗しました"); }); }
       }
       function logout() {
         currentUser = null;
