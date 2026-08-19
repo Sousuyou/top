@@ -264,6 +264,7 @@
       .dl-off { color: var(--muted); }
       .dl-actions { margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; }
       .ok-btn { background: var(--green); color: #fff; border-color: var(--green); }
+      button.ok-btn:hover { background: var(--green); opacity: .9; }   /* ホバーで白文字が薄背景に溶けないよう緑を維持 */
       .del-btn { color: var(--red); border-color: var(--red); }
       .dl-empty { color: var(--muted); font-size: 14px; padding: 14px 0; text-align: center; }
 
@@ -586,13 +587,25 @@
       }
       var pendingPush = 0;   // 送信中の書き込み件数（更新の取りこぼし防止に使う）
       var retryQueue = [];   // 送信失敗ぶんを貯めて自動再送（{action,payload}を保持）
+      var pushChains = {};   // 同じマスへの連続書き込みを直列化するための待ち行列（キー→Promise）
       function pushSafe(action, payload) {
         if (!CONNECTED) return;
         pendingPush++;
-        api(action, payload).then(function (res) {
-          if (!res || !res.ok) { requeue({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
-        }).catch(function () { requeue({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
-          .then(function () { pendingPush--; });
+        var run = function () {
+          return api(action, payload).then(function (res) {
+            if (!res || !res.ok) { requeue({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
+          }).catch(function () { requeue({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
+            .then(function () { pendingPush--; });
+        };
+        // 同じマス(日付+スタッフ)への saveShift→deleteShift 等は、前の送信が終わってから順に送る。
+        // 2連続で撃つと到着順が逆転し、「削除→古い保存が後着で復活」する事故が起きうるため直列化する。
+        var key = (action === "saveShift" || action === "deleteShift") ? ("shift|" + payload.date + "|" + payload.staffId)
+                : (action === "saveNote") ? ("note|" + payload.monthKey + "|" + payload.staffId) : null;
+        if (!key) { run(); return; }
+        var prev = pushChains[key] || Promise.resolve();
+        var cur = prev.then(run, run);   // 前の同キー送信の完了後に実行（成功・失敗どちらでも次へ）
+        pushChains[key] = cur;
+        cur.then(function () { if (pushChains[key] === cur) delete pushChains[key]; });
       }
       // 再送キューへ積む（試行回数を数え、5回を超えたら捨ててスパムと無限リトライを防ぐ）
       function requeue(item) { item.attempts = (item.attempts || 0) + 1; if (item.attempts <= 5) retryQueue.push(item); }
@@ -1036,12 +1049,14 @@
           var rec = day[p.id]; if (!rec) return;
           any = true;
           var canEdit = isOwner || currentUser.id === p.id;
+          var badge = "<span class='status " + rec.status + "'>" + (rec.status === "confirmed" ? "確定" : "希望") + "</span>";
           var info = rec.off
-            ? "<span class='dl-off'>休み</span>"
-            : "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> <span class='status " + rec.status + "'>" + (rec.status === "confirmed" ? "確定" : "希望") + "</span>";
+            ? "<span class='dl-off'>休み</span> " + badge
+            : "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> " + badge;
           var acts = "";
           if (isOwner) {
-            if (rec.status !== "confirmed") acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>✓確定</button>";
+            // 「休み」は個別確定の対象外（確定はこの週/月まとめて側で扱う。空振り防止）
+            if (rec.status !== "confirmed" && !rec.off) acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>✓確定</button>";
             acts += "<button class='small del-btn dl-remove' data-sid='" + p.id + "'>削除</button>";
             acts += "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>";
           } else if (currentUser.id === p.id) {
@@ -1442,7 +1457,7 @@
         alert(n + "マスを" + (off ? "「休み」で" : "「" + start + "〜" + end + "」で") + "更新しました。");
         sendQueue(items, n + "マスを保存しました");
       }
-      // 選んだマスを「確定」にする（時間はそのまま。空マス・確定済みはスキップ）
+      // 選んだマスを「確定」にする（時間はそのまま。空マス・休み・確定済みはスキップ）
       function cellBatchConfirm() {
         var keys = Object.keys(selectedCells);
         if (!keys.length) { alert("マス（枠）をタップして選んでください。"); return; }
@@ -1450,6 +1465,7 @@
         keys.forEach(function (key) {
           var c = selectedCells[key], day = shifts[c.date];
           if (!day || !day[c.sid]) return;                 // 空マスは対象外
+          if (day[c.sid].off) return;                      // 「休み」は確定対象外（件数に数えない）
           if (day[c.sid].status === "confirmed") return;   // すでに確定はそのまま
           day[c.sid].status = "confirmed";
           items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: day[c.sid] } });
