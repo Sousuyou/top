@@ -859,9 +859,9 @@
         box.innerHTML = "";
         STAFF.forEach(function (p) {
           var b = document.createElement("button");
-          b.className = "person-btn" + (p.owner ? " owner" : "");
+          b.className = "person-btn";   // 全員同じ見た目（オーナーを色分け/明示しない）
           b.innerHTML = '<span class="avatar">' + p.name.charAt(0) + "</span>" +
-            '<span class="who">' + p.name + (p.owner ? "<small>オーナー</small>" : "") + "</span>";
+            '<span class="who">' + p.name + "</span>";
           b.onclick = function () { login(p.id); };
           box.appendChild(b);
         });
@@ -894,7 +894,7 @@
         if (!currentUser) return;   // ログアウト直後などは描画しない
         var isOwner = currentUser.owner;
         document.getElementById("whoLabel").innerHTML =
-          '<b>' + currentUser.name + "</b> さん" + (isOwner ? '<span class="badge-owner">オーナー</span>' : "");
+          '<b>' + currentUser.name + "</b> さん";   // オーナーバッジは表示しない（全員同じ）
         document.getElementById("rangeLabel").textContent = rangeLabel();
         document.getElementById("weekModeBtn").classList.toggle("on", viewMode === "week");
         document.getElementById("monthModeBtn").classList.toggle("on", viewMode === "month");
@@ -953,7 +953,7 @@
         workers().forEach(function (p) {
           var isMe = currentUser.id === p.id;
           body += "<tr class='" + (isMe ? "me-row" : "") + "'>";
-          body += "<td class='namecell'>" + p.name + (isMe ? " <small>（あなた）</small>" : (p.owner ? " <small>オーナー</small>" : "")) + "</td>";
+          body += "<td class='namecell'>" + p.name + (isMe ? " <small>（あなた）</small>" : "") + "</td>";
           ds.forEach(function (d) {
             var k = iso(d), rec = shifts[k] && shifts[k][p.id], canEdit = isOwner || isMe;
             body += "<td>" + cellHtml(rec, canEdit, p.id, k, isMe) + "</td>";
