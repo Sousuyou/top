@@ -583,6 +583,9 @@
       var salaryUnlocked = false;   // 給料の暗証番号(PIN)を通したか
       var _pin = store.read("owner_pin", "") || "";  // 通ったPIN（メンバー編集の保存に使う／端末保存にも対応）
       function salaryVisible() { return !CONNECTED || salaryUnlocked; }
+      // 「オーナーとして操作できる」＝オーナー かつ 認証済み（接続時はパスワード通過=salaryUnlocked、デモは常に可）。
+      // 在席中に別端末でオーナーへ昇格されても、パスワードを通すまでオーナー機能を解禁しないためのゲート。
+      function actingOwner() { var u = currentUser; return !!(u && u.owner && salaryVisible()); }
       function api(action, payload) {
         if (!GAS_URL) return Promise.reject(new Error("未接続"));
         var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
@@ -715,14 +718,19 @@
         document.getElementById("pinModalBg").classList.add("show");
         setTimeout(function () { if (pi) pi.focus(); }, 60);
       }
-      function closePinModal() { pendingOwnerId = null; document.getElementById("pinModalBg").classList.remove("show"); }
+      var pinGen = 0;       // モーダルの世代。キャンセルや再送でカウントアップし、古い応答を無効化する
+      var pinBusy = false;  // パスワード送信の多重発火ガード
+      function closePinModal() { pinGen++; pinBusy = false; pendingOwnerId = null; document.getElementById("pinModalBg").classList.remove("show"); }
       // パスワード送信＝オーナーとしてログインを確定する（パスワード照合は既存のsalary APIを流用）
       function submitPin() {
+        if (pinBusy) return;   // 連打で何度もカウントされないように
         var pin = (document.getElementById("pinInput").value || "").trim();
         var pe = document.getElementById("pinError");
         if (!pin) { pe.textContent = "パスワードを入力してください"; return; }
-        pe.textContent = "確認中…";
+        var gen = ++pinGen; pinBusy = true; pe.textContent = "確認中…";
         api("salary", { pin: pin }).then(function (res) {
+          pinBusy = false;
+          if (gen !== pinGen) return;   // キャンセル済み・別送信で無効化 → 状態も保存も書き換えない
           if (res && res.ok) {
             _pin = pin; salaryUnlocked = true; applyWages(res.wages);
             if (document.getElementById("pinRemember").checked) store.write("owner_pin", pin); else store.write("owner_pin", "");
@@ -730,7 +738,7 @@
             var id = pendingOwnerId; pendingOwnerId = null;
             if (id) doLogin(id); else render();   // ログイン経由なら続けてログインを確定
           } else { pe.textContent = (res && res.error) || "パスワードが違います"; }
-        }).catch(function () { pe.textContent = "接続エラー。通信状況をご確認ください。"; });
+        }).catch(function () { pinBusy = false; if (gen !== pinGen) return; pe.textContent = "接続エラー。通信状況をご確認ください。"; });
       }
       // この端末に保存したパスワードを消す（次回のオーナーログインで入力が必要になる）
       function forgetPin() {
@@ -867,19 +875,27 @@
         });
       }
       var pendingOwnerId = null;   // オーナーのパスワード通過後にログインする対象を一時保持
+      var authBusy = false;        // ログイン認証の処理中（多重タップ・別名タップの割り込みを防ぐ）
       function applyWages(w) { w = w || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; }); }
+      // 「パスワード違い」のときだけ true（ロック中/混雑/未設定では保存パスワードを消さない）
+      function isWrongPin(res) { var e = (res && res.error) || ""; return e.indexOf("違い") >= 0; }
       // 名前タップ時の入口。オーナーは「パスワード（暗証番号）」を通してからログインする（接続時のみ。
       // 未接続のデモは照合できないのでそのまま入る）。スタッフは従来どおり即ログイン。
       function attemptLogin(id) {
+        if (authBusy) return;                       // 認証中は他のタップを無視（別名への取り違え防止）
         var p = STAFF.filter(function (x) { return x.id === id; })[0];
         if (!p) return;
         if (p.owner && CONNECTED) {
           var saved = store.read("owner_pin", "") || "";
           if (saved) {   // 端末に保存されたパスワードで自動ログインを試す
+            authBusy = true; toast("ログイン確認中…");
             api("salary", { pin: saved }).then(function (res) {
+              authBusy = false;
+              if (currentUser) return;              // 途中で別のログインが確定していたら何もしない
               if (res && res.ok) { _pin = saved; salaryUnlocked = true; applyWages(res.wages); doLogin(id); }
-              else { store.write("owner_pin", ""); openLoginPin(id); }   // パスワード変更後などで無効ならクリアして手入力
-            }).catch(function () { openLoginPin(id); });
+              else if (isWrongPin(res)) { store.write("owner_pin", ""); openLoginPin(id); }   // パスワード違いのみ破棄して手入力
+              else { openLoginPin(id); toast((res && res.error) || "確認できませんでした"); }    // ロック中/混雑等は保存を保持
+            }).catch(function () { authBusy = false; if (currentUser) return; openLoginPin(id); });
           } else { openLoginPin(id); }
         } else { doLogin(id); }
       }
@@ -902,6 +918,9 @@
         currentUser = null;
         salaryUnlocked = false; _pin = "";              // PIN解錠を必ず解除（次のオーナーに引き継がない）
         if (CONNECTED) STAFF.forEach(function (p) { p.wage = 0; }); // 給料は再度PINを通すまで0に
+        // 認証・表示位置も初期化（前のユーザーの締め期間や表示週が次の人に残らないように）
+        pendingOwnerId = null; authBusy = false; pinBusy = false;
+        salaryOffset = 0; viewMode = "week"; weekOffset = 0; monthOffset = 0; editing = null;
         // 選択モードやパネルの残骸を確実に消す（再ログイン後の壊れ状態を防ぐ）
         selectMode = false; selectedDays = {}; cellSelectMode = false; selectedCells = {};
         var bp = document.getElementById("batchPanel"); if (bp) bp.style.display = "none";
@@ -916,7 +935,7 @@
       // ═══════════════ メイン描画 ═══════════════
       function render() {
         if (!currentUser) return;   // ログアウト直後などは描画しない
-        var isOwner = currentUser.owner;
+        var isOwner = actingOwner();
         document.getElementById("whoLabel").innerHTML =
           '<b>' + currentUser.name + "</b> さん";   // オーナーバッジは表示しない（全員同じ）
         document.getElementById("rangeLabel").textContent = rangeLabel();
@@ -968,7 +987,7 @@
 
       // ── 週テーブル ──
       function renderTable() {
-        var shifts = loadShifts(), ds = weekDates(weekOffset), isOwner = currentUser.owner;
+        var shifts = loadShifts(), ds = weekDates(weekOffset), isOwner = actingOwner();
         var t = document.getElementById("shiftTable");
         var head = "<thead><tr><th class='namecell'>メンバー</th>";
         ds.forEach(function (d, i) {
@@ -1070,7 +1089,7 @@
       function closeDayModal() { document.getElementById("dayModalBg").classList.remove("show"); dayModalDate = null; }
       function renderDayList() {
         if (!dayModalDate) return;
-        var shifts = loadShifts(), day = shifts[dayModalDate] || {}, isOwner = currentUser.owner, html = "", any = false;
+        var shifts = loadShifts(), day = shifts[dayModalDate] || {}, isOwner = actingOwner(), html = "", any = false;
         workers().forEach(function (p) {
           var rec = day[p.id]; if (!rec || rec.off) return;   // 休み/未入力は一覧に出さない（空欄＝休み）
           any = true;
@@ -1187,7 +1206,7 @@
         document.getElementById("noteMonth").textContent = "（" + focusMonthLabel() + "）";
         // 自分の記入欄（スタッフのみ）
         var meBox = document.getElementById("noteMe");
-        if (currentUser.owner) { meBox.style.display = "none"; }
+        if (actingOwner()) { meBox.style.display = "none"; }
         else {
           meBox.style.display = "block";
           var ni = document.getElementById("noteInput");
@@ -1287,7 +1306,7 @@
         var left = nd.daysLeft > 0 ? "あと" + nd.daysLeft + "日" : (nd.daysLeft === 0 ? "本日締切" : "締切をすぎています");
         var main = "📅 <b>" + targetLabel + "分</b>の希望シフト提出は <b>" + dl + "</b> まで（" + left + "）";
         var extra = "";
-        if (currentUser.owner) {
+        if (actingOwner()) {
           var shifts = loadShifts();
           var tkey = nd.target.getFullYear() + "-" + pad(nd.target.getMonth() + 1);
           var pending = workers().filter(function (p) {
@@ -1299,7 +1318,7 @@
             " ｜ 締切日 <select id='deadlineDaySel'></select></div>";
         }
         el.innerHTML = main + extra;
-        if (currentUser.owner) {
+        if (actingOwner()) {
           var sel = document.getElementById("deadlineDaySel"), opts = "";
           [10, 15, 20, 25, 28].forEach(function (v) { opts += "<option value='" + v + "'" + (v === nd.day ? " selected" : "") + ">" + v + "日</option>"; });
           sel.innerHTML = opts;
@@ -1326,7 +1345,7 @@
       }
       function openModal(sid, dateISO) {
         editing = { date: dateISO };
-        var isOwner = currentUser.owner, memberRow = document.getElementById("memberRow");
+        var isOwner = actingOwner(), memberRow = document.getElementById("memberRow");
         if (isOwner) {
           memberRow.style.display = "block";
           var sel = document.getElementById("memberSelect"); sel.innerHTML = "";
@@ -1342,7 +1361,7 @@
         document.getElementById("modalBg").classList.add("show");
       }
       function closeModal() { document.getElementById("modalBg").classList.remove("show"); editing = null; }
-      function currentModalSid() { return currentUser.owner ? document.getElementById("memberSelect").value : currentUser.id; }
+      function currentModalSid() { return actingOwner() ? document.getElementById("memberSelect").value : currentUser.id; }
       function saveModal() {
         if (!editing) return;
         var date = editing.date, sid = currentModalSid();
@@ -1350,11 +1369,11 @@
           start: getHM(document.getElementById("startH"), document.getElementById("startM")),
           end: getHM(document.getElementById("endH"), document.getElementById("endM")),
           break: parseInt(document.getElementById("breakTime").value, 10) || 0,
-          status: currentUser.owner ? "confirmed" : "requested"
+          status: actingOwner() ? "confirmed" : "requested"
         };
         if (toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         // スタッフが確定済みのシフトを変更すると「希望（未承認）」に戻る旨を警告
-        if (!currentUser.owner) {
+        if (!actingOwner()) {
           var cur = (loadShifts()[date] || {})[sid];
           if (cur && cur.status === "confirmed" && !confirm("このシフトは確定済みです。変更すると『希望（未承認）』に戻り、オーナーの再確定が必要になります。よろしいですか？")) return;
         }
@@ -1395,7 +1414,7 @@
         document.getElementById("batchBtn").textContent = "選択中…";
         // オーナーは対象メンバーを選ぶ
         var wrap = document.getElementById("batchMemberWrap");
-        if (currentUser.owner) {
+        if (actingOwner()) {
           wrap.style.display = "inline"; var sel = document.getElementById("batchMember"); sel.innerHTML = "";
           workers().forEach(function (p) { sel.insertAdjacentHTML("beforeend", "<option value='" + p.id + "'>" + p.name + "</option>"); });
         } else { wrap.style.display = "none"; }
@@ -1409,8 +1428,8 @@
       function batchApply() {
         var days = Object.keys(selectedDays);
         if (!days.length) { alert("カレンダーで日を選んでください。"); return; }
-        var sid = currentUser.owner ? document.getElementById("batchMember").value : currentUser.id;
-        var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, status: currentUser.owner ? "confirmed" : "requested" };
+        var sid = actingOwner() ? document.getElementById("batchMember").value : currentUser.id;
+        var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, status: actingOwner() ? "confirmed" : "requested" };
         if (toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         var shifts = loadShifts();
         var items = [];
@@ -1429,7 +1448,7 @@
         document.getElementById("cellBatchPanel").style.display = "block";
         document.getElementById("cellBatchCount").textContent = "0";
         document.getElementById("cellBatchBtn").textContent = "選択中…";
-        document.getElementById("cellBatchConfirm").style.display = currentUser.owner ? "" : "none"; // 確定はオーナーのみ
+        document.getElementById("cellBatchConfirm").style.display = actingOwner() ? "" : "none"; // 確定はオーナーのみ
         renderTable();
       }
       function exitCellMode() {
@@ -1448,7 +1467,7 @@
         var shifts = loadShifts(), items = [];
         keys.forEach(function (key) {
           var c = selectedCells[key];
-          var r = { start: start, end: end, break: brk, status: currentUser.owner ? "confirmed" : "requested" };
+          var r = { start: start, end: end, break: brk, status: actingOwner() ? "confirmed" : "requested" };
           if (!shifts[c.date]) shifts[c.date] = {};
           shifts[c.date][c.sid] = r;
           items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: r } });
