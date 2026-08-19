@@ -16,6 +16,7 @@
         --field: #ffffff;
         --field-active: #f7f8f8;
         --line: #c9c8c2;
+        --line-strong: #b7b6af;
         --text: #161616;
         --muted: #6f6d67;
         --accent: #161616;
@@ -37,6 +38,7 @@
           --field: #211f19;
           --field-active: #2a2820;
           --line: #3a382f;
+          --line-strong: #4a4840;
           --text: #ece9df;
           --muted: #a09c8e;
           --accent: #ece9df;
@@ -63,6 +65,14 @@
         -webkit-font-smoothing: antialiased;
       }
       .wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 64px; }
+
+      /* ===== 共通カテゴリタブ（他ツールと統一。モバイルのグリッド化は nav.js が注入） ===== */
+      .site-nav { width: min(960px, calc(100% - 24px)); margin: 24px auto 0; display: flex; flex-wrap: wrap; border: 1px solid var(--line-strong); border-bottom: 0; background: var(--paper); }
+      .site-nav-link { padding: 0 18px; min-height: 38px; display: grid; place-items: center; text-decoration: none; color: var(--text); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border-right: 1px solid var(--line); transition: background 160ms ease; }
+      .site-nav-link:last-child { border-right: 0; }
+      .site-nav-link:hover { background: var(--panel-soft); }
+      .site-nav-link.active { background: var(--accent); color: var(--on-accent); }
+      @media (max-width: 640px) { .site-nav { width: min(100% - 16px, 1180px); margin: 8px auto 0; } }
 
       .demo-banner {
         background: var(--gold-soft); border: 1px solid var(--gold); color: var(--text);
@@ -289,6 +299,8 @@
     </style>
   </head>
   <body>
+    <!-- 共通カテゴリタブ（全ツール共有の nav.js が描画） -->
+    <nav class="site-nav" id="site-nav"></nav>
     <div class="wrap">
       <div class="demo-banner" id="demoBanner">
         🧪 <b>未接続（デモ）</b>です。データはこの端末の中だけに仮保存されます。ログイン画面の「接続設定」で共有URLを設定すると、みんなで共有できます。
@@ -1574,5 +1586,7 @@
       if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { _loaded = true; renderLogin(); toast("接続に失敗しました。🔄で再読み込みしてください。"); }); }
       startAutoRefresh();  // 60秒ごとの自動更新を開始
     </script>
+    <!-- 共通カテゴリタブを描画（全ツール共有の単一ファイル） -->
+    <script src="https://sousuyou.github.io/top/nav.js" defer></script>
   </body>
 </html>
