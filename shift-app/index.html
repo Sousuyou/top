@@ -559,8 +559,14 @@
       // ═══════════════ サーバー連携（本番：Googleスプレッドシート）═══════════════
       //  接続先URLは各端末で最初に1回だけ設定。未設定ならローカルのみのデモ動作。
       // 本番の接続先（Bar Soutsu 勤怠データ）。各端末の「接続設定」で別URLに上書きも可能。
-      var BAKED_URL = "https://script.google.com/macros/s/AKfycbyC13mL8XYJM77AYxv5U-UbSVMn9jOxVV33CmsjH_1aes6xsZUZ_WaCClpcHVrH4PLYOA/exec";
-      var GAS_URL = store.read("gas_url", "") || BAKED_URL;
+      var BAKED_URL = "https://script.google.com/macros/s/AKfycbyjWQ_El4Y8FrpHz164EzFVoeUeqkpmntAHfnU6V7X6Gsw2ZKulbUZyw0QHk5xs77wcHw/exec";
+      // 端末に古いデプロイURLが残っていたら、新しい埋め込みURLへ自動移行する（差し替え時に取り残されないように）
+      var OLD_URL_FRAGMENTS = ["AKfycbyC13mL8XYJM77AYxv5U"]; // 旧デプロイURLの断片
+      var _savedUrl = store.read("gas_url", "");
+      if (_savedUrl && OLD_URL_FRAGMENTS.some(function (f) { return _savedUrl.indexOf(f) >= 0; })) {
+        _savedUrl = ""; store.write("gas_url", ""); // 旧URLは破棄して新URLを使う
+      }
+      var GAS_URL = _savedUrl || BAKED_URL;
       var CONNECTED = !!GAS_URL;
       var _loaded = false;          // サーバーから初回データを取得済みか（読み込み中表示の判定に使う）
       var salaryUnlocked = false;   // 給料の暗証番号(PIN)を通したか
