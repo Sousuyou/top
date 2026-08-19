@@ -256,13 +256,15 @@
       .mrow .m-wage { width: 84px; }
 
       /* ── その日の登録者一覧 ── */
-      .dl-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+      .dl-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
       .dl-row:last-child { border-bottom: none; }
       .dl-name { font-weight: 700; min-width: 74px; }
       .dl-info { flex: 1; }
       .dl-time { font-variant-numeric: tabular-nums; }
       .dl-off { color: var(--muted); }
-      .dl-edit { margin-left: auto; }
+      .dl-actions { margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; }
+      .ok-btn { background: var(--green); color: #fff; border-color: var(--green); }
+      .del-btn { color: var(--red); border-color: var(--red); }
       .dl-empty { color: var(--muted); font-size: 14px; padding: 14px 0; text-align: center; }
 
       /* ── 接続・同期 UI ── */
@@ -380,7 +382,8 @@
             </div>
             <div class="batch-actions">
               <button class="small ghost" id="cellBatchCancel">やめる</button>
-              <button class="small" id="cellBatchDelete">選択を削除</button>
+              <button class="small del-btn" id="cellBatchDelete">選択を削除</button>
+              <button class="small ok-btn" id="cellBatchConfirm">選択を確定</button>
               <button class="small gold" id="cellBatchApply">選択したマスに適用</button>
             </div>
           </div>
@@ -1036,8 +1039,17 @@
           var info = rec.off
             ? "<span class='dl-off'>休み</span>"
             : "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> <span class='status " + rec.status + "'>" + (rec.status === "confirmed" ? "確定" : "希望") + "</span>";
+          var acts = "";
+          if (isOwner) {
+            if (rec.status !== "confirmed") acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>✓確定</button>";
+            acts += "<button class='small del-btn dl-remove' data-sid='" + p.id + "'>削除</button>";
+            acts += "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>";
+          } else if (currentUser.id === p.id) {
+            acts += "<button class='small del-btn dl-remove' data-sid='" + p.id + "'>削除</button>";
+            acts += "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>";
+          }
           html += "<div class='dl-row'><span class='dl-name'>" + p.name + (currentUser.id === p.id ? "（あなた）" : "") + "</span><span class='dl-info'>" + info + "</span>" +
-            (canEdit ? "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>" : "") + "</div>";
+            (acts ? "<span class='dl-actions'>" + acts + "</span>" : "") + "</div>";
         });
         if (!any) html = "<div class='dl-empty'>この日はまだ誰も登録されていません。</div>";
         document.getElementById("dayModalList").innerHTML = html;
@@ -1046,6 +1058,16 @@
         else if (!day[currentUser.id]) addWrap.innerHTML = "<button class='small gold dl-add-self'>＋ 自分のシフトを入れる</button>";
         Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-edit"), function (b) {
           b.onclick = function () { openModal(b.getAttribute("data-sid"), dayModalDate); };
+        });
+        Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-confirm"), function (b) {
+          b.onclick = function () { confirmShift(dayModalDate, b.getAttribute("data-sid")); };
+        });
+        Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-remove"), function (b) {
+          b.onclick = function () {
+            var sid = b.getAttribute("data-sid");
+            var nm = (STAFF.filter(function (x) { return x.id === sid; })[0] || {}).name || "";
+            if (confirm(nm + " さんのこの日のシフトを削除しますか？")) removeShift(dayModalDate, sid);
+          };
         });
         var a1 = addWrap.querySelector(".dl-add"); if (a1) a1.onclick = function () { openModal(null, dayModalDate); };
         var a2 = addWrap.querySelector(".dl-add-self"); if (a2) a2.onclick = function () { openModal(currentUser.id, dayModalDate); };
@@ -1279,6 +1301,7 @@
         var d = new Date(dateISO), dow = DOW[(d.getDay() + 6) % 7];
         document.getElementById("modalSub").textContent = (d.getMonth() + 1) + "月" + d.getDate() + "日（" + dow + "）";
         document.getElementById("modalTitle").textContent = isOwner ? "シフトを入力（確定）" : "シフト希望を入力";
+        document.getElementById("modalSave").textContent = isOwner ? "確定して保存" : "保存";
         loadIntoModal(effSid, dateISO);
         document.getElementById("modalBg").classList.add("show");
       }
@@ -1314,10 +1337,23 @@
       function deleteModal() {
         if (!editing) return;
         var date = editing.date, sid = currentModalSid();
+        closeModal(); removeShift(date, sid);
+      }
+      // 1件だけ「確定」にする（時間はそのまま。オーナーの承認用）
+      function confirmShift(date, sid) {
+        var shifts = loadShifts(), day = shifts[date];
+        if (!day || !day[sid] || day[sid].status === "confirmed") return;
+        day[sid].status = "confirmed";
+        saveShifts(shifts);
+        pushSafe("saveShift", { date: date, staffId: sid, rec: day[sid] });
+        render(); if (dayModalDate) renderDayList();
+      }
+      // 1件だけ削除する（モーダル・その日の一覧の両方から使う）
+      function removeShift(date, sid) {
         var shifts = loadShifts();
         if (shifts[date]) { delete shifts[date][sid]; saveShifts(shifts); }
         pushSafe("deleteShift", { date: date, staffId: sid });
-        closeModal(); render(); if (dayModalDate) renderDayList();
+        render(); if (dayModalDate) renderDayList();
       }
 
       // ═══════════════ まとめて申請 ═══════════════
@@ -1371,6 +1407,7 @@
         document.getElementById("cellBatchCount").textContent = "0";
         document.getElementById("cellBatchBtn").textContent = "選択中…";
         document.getElementById("cellBatchOff").checked = false; toggleCellOff();   // 「休み」状態を毎回リセット
+        document.getElementById("cellBatchConfirm").style.display = currentUser.owner ? "" : "none"; // 確定はオーナーのみ
         renderTable();
       }
       function exitCellMode() {
@@ -1404,6 +1441,25 @@
         var n = keys.length; exitCellMode(); render();
         alert(n + "マスを" + (off ? "「休み」で" : "「" + start + "〜" + end + "」で") + "更新しました。");
         sendQueue(items, n + "マスを保存しました");
+      }
+      // 選んだマスを「確定」にする（時間はそのまま。空マス・確定済みはスキップ）
+      function cellBatchConfirm() {
+        var keys = Object.keys(selectedCells);
+        if (!keys.length) { alert("マス（枠）をタップして選んでください。"); return; }
+        var shifts = loadShifts(), items = [], n = 0;
+        keys.forEach(function (key) {
+          var c = selectedCells[key], day = shifts[c.date];
+          if (!day || !day[c.sid]) return;                 // 空マスは対象外
+          if (day[c.sid].status === "confirmed") return;   // すでに確定はそのまま
+          day[c.sid].status = "confirmed";
+          items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: day[c.sid] } });
+          n++;
+        });
+        if (!n) { alert("確定できる希望シフトが選ばれていません。"); return; }
+        saveShifts(shifts);
+        exitCellMode(); render();
+        alert(n + "マスを「確定」にしました。");
+        sendQueue(items, n + "マスを確定しました");
       }
       function cellBatchDelete() {
         var keys = Object.keys(selectedCells);
@@ -1446,6 +1502,7 @@
       document.getElementById("cellBatchBtn").onclick = function () { if (cellSelectMode) exitCellMode(); else enterCellMode(); };
       document.getElementById("cellBatchCancel").onclick = exitCellMode;
       document.getElementById("cellBatchApply").onclick = cellBatchApply;
+      document.getElementById("cellBatchConfirm").onclick = cellBatchConfirm;
       document.getElementById("cellBatchDelete").onclick = cellBatchDelete;
       document.getElementById("cellBatchOff").onchange = toggleCellOff;
       document.getElementById("noteSave").onclick = saveNote;
