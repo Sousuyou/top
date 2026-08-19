@@ -545,7 +545,7 @@
       // 端末キャッシュ(demo_staff)には時給を残さない（給料はPIN解錠時のみメモリに持つ／平文保存を防ぐ）
       function saveStaff() { store.write("demo_staff", STAFF.map(function (p) { return { id: p.id, name: p.name, role: p.role, worker: p.worker, owner: p.owner, wage: 0 }; })); }
       var _idSeq = 1;
-      function newMemberId() { return "m" + STAFF.length + "_" + (_idSeq++); }
+      function newMemberId() { return "m" + Date.now().toString(36) + "_" + Math.floor(Math.random() * 1e6).toString(36); }
       var DOW = ["月", "火", "水", "木", "金", "土", "日"];
       // 「働く人」＝シフトに並ぶメンバー。店長も自分の勤務を記録するため worker:true。
       // （owner:true は「給料が見られる・確定できる」権限。worker とは別の概念）
@@ -581,9 +581,21 @@
         if (!CONNECTED) return;
         pendingPush++;
         api(action, payload).then(function (res) {
-          if (!res || !res.ok) { retryQueue.push({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
-        }).catch(function () { retryQueue.push({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
+          if (!res || !res.ok) { requeue({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
+        }).catch(function () { requeue({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
           .then(function () { pendingPush--; });
+      }
+      // 再送キューへ積む（試行回数を数え、5回を超えたら捨ててスパムと無限リトライを防ぐ）
+      function requeue(item) { item.attempts = (item.attempts || 0) + 1; if (item.attempts <= 5) retryQueue.push(item); }
+      // 再送の重複排除キー（同じマス等は最後の1件だけ送る）
+      function retryKey(item) {
+        var p = item.payload || {};
+        if (item.action === "saveShift" || item.action === "deleteShift") return "shift|" + p.date + "|" + p.staffId;
+        if (item.action === "saveNote") return "note|" + p.monthKey + "|" + p.staffId;
+        if (item.action === "saveSettings") return "settings";
+        if (item.action === "confirmRange") return "confirm";
+        if (item.action === "saveStaff") return "staff";
+        return item.action + "|" + JSON.stringify(p);
       }
       // {action,payload} の配列を最大3件ずつ順に送る（同時に送りすぎるとGASが取りこぼすため）。
       // 失敗ぶんは元のactionのまま再送キューへ。まとめ同期中は自動更新を止める（pendingPush）。
@@ -595,8 +607,8 @@
           if (idx >= queue.length) return;
           var q = queue[idx++];
           api(q.action, q.payload).then(function (res) {
-            if (!res || !res.ok) { failed++; retryQueue.push(q); }
-          }).catch(function () { failed++; retryQueue.push(q); })
+            if (!res || !res.ok) { failed++; requeue(q); }
+          }).catch(function () { failed++; requeue(q); })
             .then(function () {
               done++;
               if (done < queue.length) { toast("同期中… " + done + "/" + queue.length); step(); }
@@ -612,12 +624,19 @@
       function flushRetry() {
         if (!CONNECTED || !retryQueue.length) return;
         var q = retryQueue; retryQueue = [];
-        sendQueue(q, "未同期ぶんを再送しました");   // ★元のactionのまま再送（saveShiftに化けさせない）
+        // 同じマス等は最後の1件だけ残す（save→deleteの順序不定や重複送信を防ぐ）
+        var seen = {}, dedup = [];
+        for (var i = q.length - 1; i >= 0; i--) { var k = retryKey(q[i]); if (seen[k]) continue; seen[k] = true; dedup.unshift(q[i]); }
+        sendQueue(dedup, "未同期ぶんを再送しました");   // ★元のactionのまま再送（saveShiftに化けさせない）
       }
       // サーバーから全データを取得してメモリに反映（給料は含まれない）
+      var pulling = false;
       function pullAll() {
+        if (pulling) return Promise.resolve(false);   // 取得の多重起動を防ぐ
+        pulling = true;
         return api("load").then(function (res) {
           if (!res || !res.ok) throw new Error((res && res.error) || "読み込み失敗");
+          if (pendingPush > 0) { _loaded = true; return true; }   // 送信中は取得結果で上書きしない（保存の巻き戻り防止）
           var d = res.data || {};
           _shifts = d.shifts || {}; store.write("demo_shifts", _shifts);
           _notes = d.notes || {}; store.write("demo_notes", _notes);
@@ -632,13 +651,13 @@
           }
           _loaded = true;
           return true;
-        });
+        }).then(function (v) { pulling = false; return v; }, function (e) { pulling = false; throw e; });
       }
       function fetchWages() { return api("salary", { pin: _pin }).then(function (res) { if (res && res.ok) { var w = res.wages || {}; STAFF.forEach(function (p) { p.wage = w[p.id] || 0; }); } }); }
       function refresh() {
         if (!CONNECTED) { toast("ローカル（デモ）で動作中です"); return; }
         if (pendingPush > 0) { toast("同期中です。少し待ってからもう一度お試しください。"); return; }
-        flushRetry();
+        if (retryQueue.length) { flushRetry(); toast("未送信ぶんを再送しています…"); return; }   // 再送とpullを同時に走らせない
         pullAll().then(function () { return salaryUnlocked ? fetchWages() : null; }).then(function () { render(); toast("最新に更新しました"); })
           .catch(function () { toast("更新に失敗しました"); });
       }
@@ -650,12 +669,13 @@
           if (!CONNECTED || !currentUser) return;
           if (typeof document.hidden !== "undefined" && document.hidden) return;   // 非表示タブでは省略
           if (pendingPush > 0) return;                                             // 送信中は避ける
+          if (selectMode || cellSelectMode) return;                                // 選択・まとめ編集中は邪魔しない
           if (document.getElementById("modalBg").classList.contains("show")) return;
           if (document.getElementById("pinModalBg").classList.contains("show")) return;
-          if (selectMode) return;                                                  // 選択作業中は邪魔しない
+          if (document.getElementById("dayModalBg").classList.contains("show")) return;   // 日一覧を開いている間は避ける
+          if (retryQueue.length) { flushRetry(); return; }                         // 再送を優先し、pullは次tickへ（競合回避）
           var sig = function () { return JSON.stringify(_shifts) + "|" + JSON.stringify(_notes) + "|" + STAFF.map(function (p) { return p.id + p.name + p.role + p.worker + p.owner; }).join(","); };
           var before = sig();
-          flushRetry();
           pullAll().then(function () { if (sig() !== before) render(); }).catch(function () {});
         }, 60000);
       }
@@ -828,7 +848,7 @@
         currentUser = STAFF.filter(function (p) { return p.id === id; })[0];
         document.getElementById("loginView").style.display = "none";
         document.getElementById("appView").style.display = "block";
-        exitSelectMode(); render();
+        exitSelectMode(); exitCellMode(); render();
         // 接続中なら最新データを取り直してから表示を更新（currentUserの取り直しはpullAll内で実施）
         if (CONNECTED) { pullAll().then(function () { render(); if (currentUser && currentUser.owner) return tryAutoUnlock(); }).catch(function () { toast("最新データの取得に失敗しました"); }); }
       }
@@ -836,6 +856,12 @@
         currentUser = null;
         salaryUnlocked = false; _pin = "";              // PIN解錠を必ず解除（次のオーナーに引き継がない）
         if (CONNECTED) STAFF.forEach(function (p) { p.wage = 0; }); // 給料は再度PINを通すまで0に
+        // 選択モードやパネルの残骸を確実に消す（再ログイン後の壊れ状態を防ぐ）
+        selectMode = false; selectedDays = {}; cellSelectMode = false; selectedCells = {};
+        var bp = document.getElementById("batchPanel"); if (bp) bp.style.display = "none";
+        var cbp = document.getElementById("cellBatchPanel"); if (cbp) cbp.style.display = "none";
+        var bb = document.getElementById("batchBtn"); if (bb) bb.textContent = "＋ まとめて申請";
+        var cbb = document.getElementById("cellBatchBtn"); if (cbb) cbb.textContent = "＋ まとめて編集";
         document.getElementById("appView").style.display = "none";
         document.getElementById("loginView").style.display = "block";
         updateConnBadge();
@@ -1268,6 +1294,11 @@
           status: currentUser.owner ? "confirmed" : "requested"
         };
         if (!rec.off && toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
+        // スタッフが確定済みのシフトを変更すると「希望（未承認）」に戻る旨を警告
+        if (!currentUser.owner) {
+          var cur = (loadShifts()[date] || {})[sid];
+          if (cur && cur.status === "confirmed" && !confirm("このシフトは確定済みです。変更すると『希望（未承認）』に戻り、オーナーの再確定が必要になります。よろしいですか？")) return;
+        }
         var shifts = loadShifts(); if (!shifts[date]) shifts[date] = {};
         shifts[date][sid] = rec;
         saveShifts(shifts);
@@ -1285,10 +1316,12 @@
 
       // ═══════════════ まとめて申請 ═══════════════
       function enterSelectMode() {
+        exitCellMode();   // 週のまとめ編集モードとは同時にしない
         selectMode = true; selectedDays = {};
         document.getElementById("batchPanel").style.display = "block";
         document.getElementById("batchCount").textContent = "0";
         document.getElementById("batchBtn").textContent = "選択中…";
+        document.getElementById("batchOff").checked = false; toggleBatchOff();   // 「休み」状態を毎回リセット
         // オーナーは対象メンバーを選ぶ
         var wrap = document.getElementById("batchMemberWrap");
         if (currentUser.owner) {
@@ -1326,10 +1359,12 @@
 
       // ═══════════════ まとめて編集（週表の複数マス） ═══════════════
       function enterCellMode() {
+        exitSelectMode();   // 月の申請モードとは同時にしない
         cellSelectMode = true; selectedCells = {};
         document.getElementById("cellBatchPanel").style.display = "block";
         document.getElementById("cellBatchCount").textContent = "0";
         document.getElementById("cellBatchBtn").textContent = "選択中…";
+        document.getElementById("cellBatchOff").checked = false; toggleCellOff();   // 「休み」状態を毎回リセット
         renderTable();
       }
       function exitCellMode() {
