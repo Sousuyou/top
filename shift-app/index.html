@@ -352,7 +352,6 @@
             <div class="brow">
               <span class="bcount"><span id="batchCount">0</span>日 選択中</span>
               <span id="batchMemberWrap" style="display:none"><label>対象</label><select id="batchMember"></select></span>
-              <span class="batch-off"><input type="checkbox" id="batchOff" /><label for="batchOff" style="margin:0">休みとして申請</label></span>
               <span id="batchTimeWrap"><label>時間</label>
                 <span class="hm"><select id="batchStartH"></select><span>:</span><select id="batchStartM"></select></span> 〜
                 <span class="hm"><select id="batchEndH"></select><span>:</span><select id="batchEndM"></select></span>
@@ -372,7 +371,6 @@
           <div class="batch-panel" id="cellBatchPanel" style="display:none">
             <div class="brow">
               <span class="bcount"><span id="cellBatchCount">0</span>マス 選択中</span>
-              <span class="batch-off"><input type="checkbox" id="cellBatchOff" /><label for="cellBatchOff" style="margin:0">休みにする</label></span>
               <span id="cellBatchTimeWrap"><label>時間</label>
                 <span class="hm"><select id="cellBatchStartH"></select><span>:</span><select id="cellBatchStartM"></select></span> 〜
                 <span class="hm"><select id="cellBatchEndH"></select><span>:</span><select id="cellBatchEndM"></select></span>
@@ -498,10 +496,6 @@
         <div id="memberRow" style="display:none">
           <label>メンバー</label>
           <select id="memberSelect"></select>
-        </div>
-        <div class="off-toggle">
-          <input type="checkbox" id="offCheck" />
-          <label for="offCheck" style="margin:0;color:var(--text);font-size:14px">この日は休み</label>
         </div>
         <div id="timeInputs">
           <div class="time-row">
@@ -983,11 +977,11 @@
         renderTable();
       }
       function cellHtml(rec, canEdit, sid, dateISO, isMe) {
+        if (rec && rec.off) rec = null;   // 「休み」は入力なし（＝空き）と同じ扱い。空欄＝休み
         var cls = "cell" + (canEdit ? " editable" : "");
-        if (rec && !rec.off) cls += " " + rec.status + (isMe ? " mine" : "");   // 未承認/確定/自分 の色分け
+        if (rec) cls += " " + rec.status + (isMe ? " mine" : "");   // 未承認/確定/自分 の色分け
         var attr = " data-sid='" + sid + "' data-date='" + dateISO + "'", inner;
         if (!rec) inner = "<span class='empty'>＋</span>";
-        else if (rec.off) inner = "<span class='off'>休み</span>";
         else {
           var st = rec.status === "confirmed" ? "<span class='status confirmed'>確定</span>" : "<span class='status requested'>希望</span>";
           inner = "<span class='time'>" + rec.start + "〜" + rec.end + "</span>" + st;
@@ -1011,10 +1005,9 @@
           var sel = selectMode && selectedDays[k];
           var chips = "", cnt = 0;
           workers().forEach(function (p) {
-            var rec = shifts[k] && shifts[k][p.id]; if (!rec) return;
+            var rec = shifts[k] && shifts[k][p.id]; if (!rec || rec.off) return;   // 休み/未入力は表示しない
             var mine = currentUser.id === p.id ? " mine" : "";
-            if (rec.off) chips += "<div class='chip off" + mine + "'>" + p.name + " 休</div>";
-            else { cnt++; chips += "<div class='chip " + rec.status + mine + "'>" + p.name + " " + rec.start.slice(0, 5) + "〜" + rec.end.slice(0, 5) + "</div>"; }
+            cnt++; chips += "<div class='chip " + rec.status + mine + "'>" + p.name + " " + rec.start.slice(0, 5) + "〜" + rec.end.slice(0, 5) + "</div>";
           });
           // 人数チェック：出勤者の人数を色分けで表示（1人=注意ゴールド／2人以上=緑）
           var cntBadge = cnt > 0 ? "<span class='cal-cnt c" + (cnt === 1 ? "1" : "2") + "'>" + cnt + "人</span>" : "";
@@ -1050,17 +1043,14 @@
         if (!dayModalDate) return;
         var shifts = loadShifts(), day = shifts[dayModalDate] || {}, isOwner = currentUser.owner, html = "", any = false;
         workers().forEach(function (p) {
-          var rec = day[p.id]; if (!rec) return;
+          var rec = day[p.id]; if (!rec || rec.off) return;   // 休み/未入力は一覧に出さない（空欄＝休み）
           any = true;
           var canEdit = isOwner || currentUser.id === p.id;
           var badge = "<span class='status " + rec.status + "'>" + (rec.status === "confirmed" ? "確定" : "希望") + "</span>";
-          var info = rec.off
-            ? "<span class='dl-off'>休み</span> " + badge
-            : "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> " + badge;
+          var info = "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> " + badge;
           var acts = "";
           if (isOwner) {
-            // 「休み」は個別確定の対象外（確定はこの週/月まとめて側で扱う。空振り防止）
-            if (rec.status !== "confirmed" && !rec.off) acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>✓確定</button>";
+            if (rec.status !== "confirmed") acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>✓確定</button>";
             acts += "<button class='small del-btn dl-remove' data-sid='" + p.id + "'>削除</button>";
             acts += "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>";
           } else if (currentUser.id === p.id) {
@@ -1273,7 +1263,7 @@
           var tkey = nd.target.getFullYear() + "-" + pad(nd.target.getMonth() + 1);
           var pending = workers().filter(function (p) {
             if (p.owner) return false;
-            var has = Object.keys(shifts).some(function (k) { return k.indexOf(tkey) === 0 && shifts[k][p.id]; });
+            var has = Object.keys(shifts).some(function (k) { return k.indexOf(tkey) === 0 && shifts[k][p.id] && !shifts[k][p.id].off; });
             return !has;
           }).map(function (p) { return p.name; });
           extra = "<div class='notice-sub'>未提出：" + (pending.length ? "<b>" + pending.join("・") + "</b> さん" : "なし（全員提出済み）") +
@@ -1300,12 +1290,10 @@
       function fmtDur(h) { var t = Math.round(h * 60), H = Math.floor(t / 60), M = t % 60; return M ? H + "h" + pad(M) + "m" : H + "h"; }
       function loadIntoModal(sid, dateISO) {
         var shifts = loadShifts(), rec = shifts[dateISO] && shifts[dateISO][sid];
-        document.getElementById("offCheck").checked = !!(rec && rec.off);
         setHM(document.getElementById("startH"), document.getElementById("startM"), (rec && rec.start) || "18:00");
         setHM(document.getElementById("endH"), document.getElementById("endM"), (rec && rec.end) || "24:00");
         document.getElementById("breakTime").value = String((rec && rec.break) || 0);
         document.getElementById("modalDelete").style.display = rec ? "inline-block" : "none";
-        toggleOff();
       }
       function openModal(sid, dateISO) {
         editing = { date: dateISO };
@@ -1325,11 +1313,6 @@
         document.getElementById("modalBg").classList.add("show");
       }
       function closeModal() { document.getElementById("modalBg").classList.remove("show"); editing = null; }
-      function toggleOff() {
-        var off = document.getElementById("offCheck").checked;
-        document.getElementById("timeInputs").style.opacity = off ? ".35" : "1";
-        document.getElementById("timeInputs").style.pointerEvents = off ? "none" : "auto";
-      }
       function currentModalSid() { return currentUser.owner ? document.getElementById("memberSelect").value : currentUser.id; }
       function saveModal() {
         if (!editing) return;
@@ -1338,10 +1321,9 @@
           start: getHM(document.getElementById("startH"), document.getElementById("startM")),
           end: getHM(document.getElementById("endH"), document.getElementById("endM")),
           break: parseInt(document.getElementById("breakTime").value, 10) || 0,
-          off: document.getElementById("offCheck").checked,
           status: currentUser.owner ? "confirmed" : "requested"
         };
-        if (!rec.off && toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
+        if (toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         // スタッフが確定済みのシフトを変更すると「希望（未承認）」に戻る旨を警告
         if (!currentUser.owner) {
           var cur = (loadShifts()[date] || {})[sid];
@@ -1382,7 +1364,6 @@
         document.getElementById("batchPanel").style.display = "block";
         document.getElementById("batchCount").textContent = "0";
         document.getElementById("batchBtn").textContent = "選択中…";
-        document.getElementById("batchOff").checked = false; toggleBatchOff();   // 「休み」状態を毎回リセット
         // オーナーは対象メンバーを選ぶ
         var wrap = document.getElementById("batchMemberWrap");
         if (currentUser.owner) {
@@ -1400,22 +1381,16 @@
         var days = Object.keys(selectedDays);
         if (!days.length) { alert("カレンダーで日を選んでください。"); return; }
         var sid = currentUser.owner ? document.getElementById("batchMember").value : currentUser.id;
-        var off = document.getElementById("batchOff").checked;
-        var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, off: off, status: currentUser.owner ? "confirmed" : "requested" };
-        if (!off && toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
+        var rec = { start: getHM(document.getElementById("batchStartH"), document.getElementById("batchStartM")), end: getHM(document.getElementById("batchEndH"), document.getElementById("batchEndM")), brk: parseInt(document.getElementById("batchBreak").value, 10) || 0, status: currentUser.owner ? "confirmed" : "requested" };
+        if (toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         var shifts = loadShifts();
         var items = [];
-        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, off: rec.off, status: rec.status }; shifts[k][sid] = r; items.push({ date: k, staffId: sid, rec: r }); });
+        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, status: rec.status }; shifts[k][sid] = r; items.push({ date: k, staffId: sid, rec: r }); });
         saveShifts(shifts);
         var name = STAFF.filter(function (p) { return p.id === sid; })[0].name;
         exitSelectMode(); render();
-        alert(name + " さんの " + days.length + "日分を" + (off ? "「休み」で" : "「" + rec.start + "〜" + rec.end + "」で") + "申請しました。");
+        alert(name + " さんの " + days.length + "日分を「" + rec.start + "〜" + rec.end + "」で申請しました。");
         bulkPush(items, name + " さんの " + items.length + "日分を保存しました");   // 少数ずつ順に確実に同期
-      }
-      function toggleBatchOff() {
-        var off = document.getElementById("batchOff").checked;
-        document.getElementById("batchTimeWrap").style.opacity = off ? ".35" : "1";
-        document.getElementById("batchTimeWrap").style.pointerEvents = off ? "none" : "auto";
       }
 
       // ═══════════════ まとめて編集（週表の複数マス） ═══════════════
@@ -1425,7 +1400,6 @@
         document.getElementById("cellBatchPanel").style.display = "block";
         document.getElementById("cellBatchCount").textContent = "0";
         document.getElementById("cellBatchBtn").textContent = "選択中…";
-        document.getElementById("cellBatchOff").checked = false; toggleCellOff();   // 「休み」状態を毎回リセット
         document.getElementById("cellBatchConfirm").style.display = currentUser.owner ? "" : "none"; // 確定はオーナーのみ
         renderTable();
       }
@@ -1435,30 +1409,24 @@
         document.getElementById("cellBatchBtn").textContent = "＋ まとめて編集";
         renderTable();
       }
-      function toggleCellOff() {
-        var off = document.getElementById("cellBatchOff").checked;
-        document.getElementById("cellBatchTimeWrap").style.opacity = off ? ".35" : "1";
-        document.getElementById("cellBatchTimeWrap").style.pointerEvents = off ? "none" : "auto";
-      }
       function cellBatchApply() {
         var keys = Object.keys(selectedCells);
         if (!keys.length) { alert("マス（枠）をタップして選んでください。"); return; }
-        var off = document.getElementById("cellBatchOff").checked;
         var start = getHM(document.getElementById("cellBatchStartH"), document.getElementById("cellBatchStartM"));
         var end = getHM(document.getElementById("cellBatchEndH"), document.getElementById("cellBatchEndM"));
         var brk = parseInt(document.getElementById("cellBatchBreak").value, 10) || 0;
-        if (!off && toMin(end) <= toMin(start)) { alert("終了は開始より後の時刻にしてください。"); return; }
+        if (toMin(end) <= toMin(start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         var shifts = loadShifts(), items = [];
         keys.forEach(function (key) {
           var c = selectedCells[key];
-          var r = { start: start, end: end, break: brk, off: off, status: currentUser.owner ? "confirmed" : "requested" };
+          var r = { start: start, end: end, break: brk, status: currentUser.owner ? "confirmed" : "requested" };
           if (!shifts[c.date]) shifts[c.date] = {};
           shifts[c.date][c.sid] = r;
           items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: r } });
         });
         saveShifts(shifts);
         var n = keys.length; exitCellMode(); render();
-        alert(n + "マスを" + (off ? "「休み」で" : "「" + start + "〜" + end + "」で") + "更新しました。");
+        alert(n + "マスを「" + start + "〜" + end + "」で更新しました。");
         sendQueue(items, n + "マスを保存しました");
       }
       // 選んだマスを「確定」にする（時間はそのまま。空マス・休み・確定済みはスキップ）
@@ -1542,18 +1510,15 @@
       document.getElementById("batchBtn").onclick = function () { if (selectMode) exitSelectMode(); else enterSelectMode(); };
       document.getElementById("batchCancel").onclick = exitSelectMode;
       document.getElementById("batchApply").onclick = batchApply;
-      document.getElementById("batchOff").onchange = toggleBatchOff;
       document.getElementById("cellBatchBtn").onclick = function () { if (cellSelectMode) exitCellMode(); else enterCellMode(); };
       document.getElementById("cellBatchCancel").onclick = exitCellMode;
       document.getElementById("cellBatchApply").onclick = cellBatchApply;
       document.getElementById("cellBatchConfirm").onclick = cellBatchConfirm;
       document.getElementById("cellBatchDelete").onclick = cellBatchDelete;
-      document.getElementById("cellBatchOff").onchange = toggleCellOff;
       document.getElementById("noteSave").onclick = saveNote;
       document.getElementById("modalCancel").onclick = closeModal;
       document.getElementById("modalSave").onclick = saveModal;
       document.getElementById("modalDelete").onclick = deleteModal;
-      document.getElementById("offCheck").onchange = toggleOff;
       document.getElementById("memberSelect").onchange = function () { loadIntoModal(this.value, editing.date); };
       document.getElementById("modalBg").onclick = function (e) { if (e.target === this) closeModal(); };
       document.getElementById("dayModalClose").onclick = closeDayModal;
