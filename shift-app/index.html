@@ -343,6 +343,7 @@
               <button class="small gold" id="cellBatchBtn" style="display:none">＋ まとめて編集</button>
               <button class="small gold" id="batchBtn" style="display:none">＋ まとめて申請</button>
               <button class="small primary" id="confirmBtn" style="display:none">確定する</button>
+              <button class="small del-btn" id="deleteReqBtn" style="display:none">希望を削除</button>
             </div>
           </div>
 
@@ -906,10 +907,13 @@
         document.getElementById("batchBtn").style.display = viewMode === "month" ? "inline-block" : "none";
         // まとめて編集ボタンは週表示のときだけ（複数マスを選ぶため）
         document.getElementById("cellBatchBtn").style.display = viewMode === "week" ? "inline-block" : "none";
-        // 確定ボタンはオーナーのみ
+        // 確定ボタン・希望まとめ削除ボタンはオーナーのみ
         var confirmBtn = document.getElementById("confirmBtn");
         confirmBtn.style.display = isOwner ? "inline-block" : "none";
         confirmBtn.textContent = viewMode === "week" ? "この週を確定" : "この月を確定";
+        var delReqBtn = document.getElementById("deleteReqBtn");
+        delReqBtn.style.display = isOwner ? "inline-block" : "none";
+        delReqBtn.textContent = viewMode === "week" ? "この週の希望を削除" : "この月の希望を削除";
 
         if (viewMode === "week") renderTable(); else renderCalendar();
 
@@ -1504,6 +1508,29 @@
         alert((viewMode === "week" ? "この週" : focusMonthLabel()) + "のシフトを全員分「確定」にしました。");
       }
 
+      // ═══════════════ オーナー：未確定（希望）をまとめて削除 ═══════════════
+      // 表示中の週/月の中で status==="requested" のシフトだけを一括削除する（確定済みは残す）
+      function deleteRequestedRange() {
+        var shifts = loadShifts(), ds = visibleDates(), targets = [];
+        ds.forEach(function (d) {
+          var k = iso(d), day = shifts[k]; if (!day) return;
+          Object.keys(day).forEach(function (sid) {
+            if (day[sid] && day[sid].status === "requested") targets.push({ date: k, sid: sid });
+          });
+        });
+        var scope = viewMode === "week" ? "この週" : focusMonthLabel();
+        if (!targets.length) { alert(scope + "に未確定（希望）のシフトはありません。"); return; }
+        if (!confirm(scope + "の未確定（希望）シフト " + targets.length + "件を削除します。\n※「確定」済みのシフトは残ります。よろしいですか？")) return;
+        var items = [];
+        targets.forEach(function (t) {
+          if (shifts[t.date]) delete shifts[t.date][t.sid];
+          items.push({ action: "deleteShift", payload: { date: t.date, staffId: t.sid } });
+        });
+        saveShifts(shifts);
+        render();
+        sendQueue(items, targets.length + "件の希望を削除しました");
+      }
+
       // ═══════════════ イベント ═══════════════
       document.getElementById("switchBtn").onclick = function () { exitSelectMode(); exitCellMode(); logout(); };
       document.getElementById("weekModeBtn").onclick = function () { viewMode = "week"; exitSelectMode(); exitCellMode(); render(); };
@@ -1511,6 +1538,7 @@
       document.getElementById("prevBtn").onclick = function () { if (viewMode === "week") weekOffset--; else monthOffset--; exitSelectMode(); exitCellMode(); render(); };
       document.getElementById("nextBtn").onclick = function () { if (viewMode === "week") weekOffset++; else monthOffset++; exitSelectMode(); exitCellMode(); render(); };
       document.getElementById("confirmBtn").onclick = confirmRange;
+      document.getElementById("deleteReqBtn").onclick = deleteRequestedRange;
       document.getElementById("batchBtn").onclick = function () { if (selectMode) exitSelectMode(); else enterSelectMode(); };
       document.getElementById("batchCancel").onclick = exitSelectMode;
       document.getElementById("batchApply").onclick = batchApply;
