@@ -296,6 +296,42 @@
         .cal-date { font-size: 11px; }
         .chip { font-size: 9px; padding: 1px 3px; border-left-width: 3px; }
       }
+
+      /* ── 給与明細（1枚もの：プレビュー・印刷・画像で共用の見た目。テーマに関わらず紙のように白） ── */
+      .pay-slip { background:#fff; color:#1a1a1a; border:1px solid #d9d8d1; border-radius:14px; padding:22px 24px; max-width:460px; margin:0 auto 12px; font-family:inherit; }
+      .pay-slip .ps-brand { font-size:15px; font-weight:700; letter-spacing:.02em; }
+      .pay-slip .ps-brand span { color:#9a7b32; margin-left:6px; }
+      .pay-slip .ps-period { font-size:12px; color:#6f6d67; margin:2px 0 14px; }
+      .pay-slip .ps-name { font-size:20px; font-weight:800; margin:0 0 10px; padding-bottom:12px; border-bottom:1px solid #eceae2; }
+      .pay-slip .ps-table { width:100%; border-collapse:collapse; }
+      .pay-slip .ps-table td { padding:7px 0; font-size:14px; }
+      .pay-slip .ps-table td:first-child { color:#6f6d67; }
+      .pay-slip .ps-table td:last-child { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+      .pay-slip .ps-total { display:flex; align-items:baseline; justify-content:space-between; margin-top:14px; padding-top:14px; border-top:2px solid #1a1a1a; }
+      .pay-slip .ps-total span { font-size:14px; font-weight:700; }
+      .pay-slip .ps-total b { font-size:26px; font-variant-numeric:tabular-nums; }
+      .pay-slip .ps-foot { margin-top:14px; font-size:11px; color:#8a887f; line-height:1.5; }
+      .pay-slip.summary { max-width:520px; }
+      .pay-slip .ps-sumtable { width:100%; border-collapse:collapse; margin-top:4px; }
+      .pay-slip .ps-sumtable th, .pay-slip .ps-sumtable td { border-bottom:1px solid #eceae2; padding:6px 8px; font-size:13px; text-align:right; }
+      .pay-slip .ps-sumtable th:first-child, .pay-slip .ps-sumtable td:first-child { text-align:left; }
+      .pay-slip .ps-sumtable thead th { color:#6f6d67; font-weight:600; }
+      .pay-slip .ps-sumtable tfoot td { font-weight:800; border-top:2px solid #1a1a1a; }
+      .slip-modal { max-width:540px; }
+      .slip-preview { margin:14px 0; max-height:46vh; overflow:auto; background:var(--panel-soft); border-radius:12px; padding:14px 8px; }
+      #slipImage { max-width:100%; border:1px solid var(--line); border-radius:10px; display:block; }
+
+      /* ── 印刷（給与明細だけをきれいに出す。印刷ダイアログで「PDFとして保存」も可） ──
+         印刷スタイルは body.slip-printing の間だけ有効。こうしないと、通常のブラウザ印刷(Cmd/Ctrl+P)で
+         アプリ本体(.wrap)が消えて白紙になったり、前に作った明細が残って給与額が漏れたりする。 */
+      #printSlips { display:none; }
+      @media print {
+        body.slip-printing .site-nav, body.slip-printing #toast, body.slip-printing .wrap, body.slip-printing .modal-bg { display:none !important; }
+        body.slip-printing #printSlips { display:block !important; }
+        body.slip-printing { background:#fff !important; }
+        .print-slips { padding:8mm; }
+        .print-slips .pay-slip { break-inside:avoid; page-break-inside:avoid; box-shadow:none; margin:0 auto 8mm; }
+      }
     </style>
   </head>
   <body>
@@ -351,6 +387,7 @@
           <div class="card-head">
             <h3 id="shiftTitle">シフト</h3>
             <div class="head-actions">
+              <button class="small" id="lineBtn">📋 LINE用</button>
               <button class="small gold" id="cellBatchBtn" style="display:none">＋ まとめて編集</button>
               <button class="small gold" id="batchBtn" style="display:none">＋ まとめて申請</button>
               <button class="small primary" id="confirmBtn" style="display:none">確定する</button>
@@ -447,6 +484,7 @@
               <button class="small" id="salNext">次 ▶</button>
             </span>
             <button class="small" id="salCopy">明細をコピー</button>
+            <button class="small primary" id="slipBtn">📄 明細を作る（画像・印刷）</button>
           </div>
           <div id="salaryTableWrap" class="table-scroll"><table class="salary" id="salaryTable"></table></div>
           <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間で、<b>休憩は勤務全体に按分</b>して差し引きます（通常も深夜も同じ割合で減る）。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
@@ -531,6 +569,32 @@
         </div>
       </div>
     </div>
+
+    <!-- 給与明細（画像・印刷）モーダル -->
+    <div class="modal-bg" id="slipModalBg">
+      <div class="modal slip-modal">
+        <h3>📄 給与明細を作る</h3>
+        <p class="msub" id="slipPeriod"></p>
+        <label>だれの明細</label>
+        <select id="slipWho"></select>
+        <div id="slipPreview" class="slip-preview"></div>
+        <div id="slipImageWrap" style="display:none">
+          <img id="slipImage" alt="給与明細" />
+          <div class="actions" style="margin-top:10px">
+            <button class="small" id="slipSave">⬇ 画像を保存</button>
+          </div>
+          <p class="msub">スマホは画像を長押し、パソコンは右クリックでも保存・LINE送信できます。</p>
+        </div>
+        <div class="actions" style="flex-wrap:wrap">
+          <button class="ghost" id="slipClose">閉じる</button>
+          <button id="slipPrint">🖨 印刷／PDF</button>
+          <button class="primary" id="slipImageBtn">🖼 画像にする</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 印刷専用（画面には出さず、印刷時だけ表示する） -->
+    <div id="printSlips"></div>
 
     <script>
       // ───────────────────────────────────────────────
@@ -707,6 +771,7 @@
           if (document.getElementById("modalBg").classList.contains("show")) return;
           if (document.getElementById("pinModalBg").classList.contains("show")) return;
           if (document.getElementById("dayModalBg").classList.contains("show")) return;   // 日一覧を開いている間は避ける
+          if (document.getElementById("slipModalBg").classList.contains("show")) return;  // 給与明細を開いている間は避ける（プレビューと印刷/画像の食い違い・モーダル残留を防ぐ）
           if (retryQueue.length) { flushRetry(); return; }                         // 再送を優先し、pullは次tickへ（競合回避）
           var sig = function () { return JSON.stringify(_shifts) + "|" + JSON.stringify(_notes) + "|" + JSON.stringify(_settings) + "|" + STAFF.map(function (p) { return p.id + p.name + p.role + p.worker + p.owner; }).join(","); };
           var before = sig();
@@ -923,6 +988,12 @@
         var cbp = document.getElementById("cellBatchPanel"); if (cbp) cbp.style.display = "none";
         var bb = document.getElementById("batchBtn"); if (bb) bb.textContent = "＋ まとめて申請";
         var cbb = document.getElementById("cellBatchBtn"); if (cbb) cbb.textContent = "＋ まとめて編集";
+        // 給与明細のモーダル・プレビュー・画像・印刷用HTMLの残骸を消す（次のログイン者に前オーナーの給与が残らないように）
+        var smb = document.getElementById("slipModalBg"); if (smb) smb.classList.remove("show");
+        var siw = document.getElementById("slipImageWrap"); if (siw) siw.style.display = "none";
+        var si = document.getElementById("slipImage"); if (si) si.removeAttribute("src");
+        var spv = document.getElementById("slipPreview"); if (spv) spv.innerHTML = "";
+        clearPrintSlips();
         document.getElementById("appView").style.display = "none";
         document.getElementById("loginView").style.display = "block";
         updateConnBadge();
@@ -1190,10 +1261,249 @@
         });
         lines.push("", "人件費合計：¥" + total.toLocaleString());
         var text = lines.join("\n");
+        copyText(text, document.getElementById("salCopy"), "✓ コピーしました");
+      }
+
+      // ═══════════════ 追加：確定シフトをLINE用テキストにする ═══════════════
+      // 終了時刻をやさしく表示（26:00→翌2:00、24:00→翌0:00、それ以外はそのまま）。表記ゆれを読みやすく整える。
+      function fmtClock(t) {
+        if (!t) return "";
+        var p = String(t).split(":"), h = parseInt(p[0], 10), m = p[1] || "00";
+        if (isNaN(h)) return t;
+        return h >= 24 ? "翌" + (h - 24) + ":" + m : h + ":" + m;
+      }
+      // クリップボードにコピー（使えない環境ではテキストを表示）。btnを渡すと成功時にラベルを一瞬変える。
+      function copyText(text, btn, okMsg) {
+        var ok = function () { if (btn) flash(btn, okMsg || "✓ コピーしました"); };
         try {
-          if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text)["catch"](function () { alert(text); }); flash(document.getElementById("salCopy"), "✓ コピーしました"); }
-          else { alert(text); }
+          if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(ok, function () { alert(text); }); }
+          else { alert(text); ok(); }
         } catch (e) { alert(text); }
+      }
+      // 表示中の週/月から「確定」シフトだけを集め、LINEに貼れる文面を作ってコピーする。
+      // 週表示は7日ぶんすべて（誰もいない日は「お休み」）、月表示は予定のある日だけを載せる。
+      function copyShiftLine() {
+        var shifts = loadShifts(), ds = visibleDates(), isWeek = viewMode === "week", blocks = [];
+        ds.forEach(function (d) {
+          var k = iso(d), day = shifts[k] || {}, dow = DOW[(d.getDay() + 6) % 7];
+          var dateLabel = (d.getMonth() + 1) + "/" + d.getDate() + "(" + dow + ")", people = [];
+          workers().forEach(function (p) {
+            var rec = day[p.id];
+            if (!rec || rec.off || rec.status !== "confirmed" || !rec.start || !rec.end) return;
+            people.push("・" + p.name + " " + fmtClock(rec.start) + "〜" + fmtClock(rec.end));
+          });
+          if (people.length) blocks.push("▼" + dateLabel + "\n" + people.join("\n"));
+          else if (isWeek) blocks.push("▼" + dateLabel + "\n・お休み");
+        });
+        if (!blocks.length) { toast("この期間に確定済みのシフトがありません"); return; }
+        var text = "🍸 Bar Soutsu シフト\n" + rangeLabel() + "\n\n" + blocks.join("\n\n");
+        copyText(text, document.getElementById("lineBtn"), "✓ LINE用にコピー");
+      }
+
+      // ═══════════════ 追加：給与明細（画像・印刷）═══════════════
+      function fmtMD(d) { return (d.getMonth() + 1) + "/" + d.getDate(); }
+      function currentSlipPeriod() { return closingPeriod(salaryOffset); }
+      // 1人分の明細に必要な数値（給与計算payOfに「出勤日数」を足したもの。給料表と同じ集計を使う）
+      function payDetail(p, ds, shifts) {
+        var d = payOf(p, ds, shifts), days = 0;
+        ds.forEach(function (dt) { if (splitHours(shifts[iso(dt)] && shifts[iso(dt)][p.id]).total > 0) days++; });
+        return { days: days, total: d.total, late: d.late, premium: d.premium, pay: d.pay, wage: p.wage };
+      }
+      // 明細1枚分のHTML（プレビュー・印刷で共用）
+      function slipCardHtml(p, per, det) {
+        function r(l, v) { return "<tr><td>" + l + "</td><td>" + v + "</td></tr>"; }
+        return "<div class='pay-slip'>" +
+          "<div class='ps-brand'>🍸 Bar Soutsu<span>給与明細</span></div>" +
+          "<div class='ps-period'>" + per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）</div>" +
+          "<div class='ps-name'>" + escapeHtml(p.name) + " さん</div>" +
+          "<table class='ps-table'>" +
+            r("時給", "¥" + p.wage.toLocaleString()) +
+            r("出勤日数", det.days + "日") +
+            r("実働時間", fmtDur(det.total)) +
+            r("うち深夜", det.late > 0 ? fmtDur(det.late) : "－") +
+            r("深夜手当", det.premium > 0 ? "¥" + det.premium.toLocaleString() : "－") +
+          "</table>" +
+          "<div class='ps-total'><span>支給額</span><b>¥" + det.pay.toLocaleString() + "</b></div>" +
+          "<div class='ps-foot'>深夜割増：22:00〜翌5:00は時給+25%。実働は休憩を差し引いた時間です。</div>" +
+        "</div>";
+      }
+      // 全員一覧のHTML（プレビュー・印刷で共用）
+      function slipSummaryHtml(per, ds, shifts) {
+        var rows = "", tPay = 0;
+        workers().forEach(function (p) {
+          var det = payDetail(p, ds, shifts); tPay += det.pay;
+          rows += "<tr><td>" + escapeHtml(p.name) + "</td><td>" + fmtDur(det.total) + "</td><td>" +
+            (det.late > 0 ? fmtDur(det.late) : "－") + "</td><td>" + (p.wage > 0 ? "¥" + det.pay.toLocaleString() : "記録のみ") + "</td></tr>";
+        });
+        return "<div class='pay-slip summary'>" +
+          "<div class='ps-brand'>🍸 Bar Soutsu<span>給与明細（一覧）</span></div>" +
+          "<div class='ps-period'>" + per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）</div>" +
+          "<table class='ps-sumtable'><thead><tr><th>メンバー</th><th>実働</th><th>深夜</th><th>支給額</th></tr></thead><tbody>" + rows +
+          "</tbody><tfoot><tr><td>合計</td><td></td><td></td><td>¥" + tPay.toLocaleString() + "</td></tr></tfoot></table>" +
+        "</div>";
+      }
+      function openSlipModal() {
+        var per = currentSlipPeriod();
+        document.getElementById("slipPeriod").textContent = per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）";
+        var sel = document.getElementById("slipWho");
+        var opts = "<option value='all'>全員の一覧（合計表）</option><option value='each'>全員の個別明細（1人1枚）</option>";
+        workers().forEach(function (p) { if (p.wage > 0) opts += "<option value='" + p.id + "'>" + escapeHtml(p.name) + " さん</option>"; });
+        sel.innerHTML = opts; sel.value = "all";
+        renderSlipPreview();
+        document.getElementById("slipModalBg").classList.add("show");
+      }
+      function closeSlipModal() {
+        document.getElementById("slipModalBg").classList.remove("show");
+        document.getElementById("slipImageWrap").style.display = "none";
+        clearPrintSlips();   // 閉じた時点で印刷用HTML（給与額）の残骸を残さない
+      }
+      // 選択（all=合計表／each=全員の個別／id=個人）に応じた明細HTMLを返す。プレビュー・印刷で共用し「見たまま＝印刷」に揃える。
+      function slipHtmlFor(who, per, ds, shifts) {
+        if (who === "all") return slipSummaryHtml(per, ds, shifts);
+        if (who === "each") {
+          var h = ""; workers().forEach(function (p) { if (p.wage > 0) h += slipCardHtml(p, per, payDetail(p, ds, shifts)); });
+          return h || slipSummaryHtml(per, ds, shifts);   // 給料対象がいなければ一覧
+        }
+        var p = workers().filter(function (x) { return x.id === who; })[0];
+        return p ? slipCardHtml(p, per, payDetail(p, ds, shifts)) : "";
+      }
+      function renderSlipPreview() {
+        var per = currentSlipPeriod(), ds = datesBetween(per.start, per.end), shifts = loadShifts();
+        document.getElementById("slipPreview").innerHTML = slipHtmlFor(document.getElementById("slipWho").value, per, ds, shifts);
+        document.getElementById("slipImageWrap").style.display = "none";
+      }
+      // 印刷：プレビューと同じHTMLを印刷用領域に入れ、印刷スタイルを一時ON→window.print()（ダイアログで「PDFで保存」も可）
+      function printSlips() {
+        var per = currentSlipPeriod(), ds = datesBetween(per.start, per.end), shifts = loadShifts();
+        var html = slipHtmlFor(document.getElementById("slipWho").value, per, ds, shifts);
+        document.getElementById("printSlips").innerHTML = "<div class='print-slips'>" + html + "</div>";
+        document.body.classList.add("slip-printing");   // この印刷の間だけ「明細だけ」表示にする
+        window.print();
+      }
+      // 印刷が終わったら印刷スタイルを解除し、給与額を含む印刷用HTMLの残骸を消す（通常印刷の白紙化・情報漏れを防ぐ）
+      function clearPrintSlips() {
+        document.body.classList.remove("slip-printing");
+        var ps = document.getElementById("printSlips"); if (ps) ps.innerHTML = "";
+      }
+
+      // ── 明細を画像(PNG)にする（外部ライブラリなしでcanvasに手描き）──
+      var SLIP_FONT = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif';
+      var SLIP_H = 26 + 30 + 22 + 40 + 14 + 5 * 30 + 16 + 44 + 40 + 26;   // 明細カード1枚の高さ（drawSlipと一致させる）
+      function roundRectPath(ctx, x, y, w, h, r) {
+        ctx.beginPath(); ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+      }
+      // canvasで幅maxWに収まらない文字列は末尾を「…」で省略する（長い名前がカードをはみ出す/数字と重なるのを防ぐ）。
+      // ※必ず ctx.font を設定した後に呼ぶこと（現在のフォントで幅を測るため）。
+      function clipText(ctx, s, maxW) {
+        s = String(s == null ? "" : s);
+        if (ctx.measureText(s).width <= maxW) return s;
+        var e = "…";
+        while (s.length && ctx.measureText(s + e).width > maxW) s = s.slice(0, -1);
+        return s + e;
+      }
+      // 1人分の明細をcanvasに描く。開始yを受け取り、描き終わり位置（y+高さ）を返す＝縦に積める。
+      function drawSlip(ctx, x, y, w, p, per, det) {
+        var PAD = 26, cx = x + PAD, cw = w - PAD * 2, H = SLIP_H;
+        var rows = [
+          ["時給", "¥" + p.wage.toLocaleString()], ["出勤日数", det.days + "日"],
+          ["実働時間", fmtDur(det.total)], ["うち深夜", det.late > 0 ? fmtDur(det.late) : "－"],
+          ["深夜手当", det.premium > 0 ? "¥" + det.premium.toLocaleString() : "－"]
+        ];
+        ctx.fillStyle = "#ffffff"; roundRectPath(ctx, x, y, w, H, 16); ctx.fill();
+        ctx.strokeStyle = "#d9d8d1"; ctx.lineWidth = 1; roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, H - 1, 16); ctx.stroke();
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+        var ty = y + PAD + 20;
+        ctx.fillStyle = "#1a1a1a"; ctx.font = "700 21px " + SLIP_FONT; ctx.fillText("Bar Soutsu", cx, ty);
+        var bw = ctx.measureText("Bar Soutsu ").width;
+        ctx.fillStyle = "#9a7b32"; ctx.font = "700 14px " + SLIP_FONT; ctx.fillText("給与明細", cx + bw + 4, ty);
+        ty += 24; ctx.fillStyle = "#6f6d67"; ctx.font = "13px " + SLIP_FONT;
+        ctx.fillText(per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）", cx, ty);
+        ty += 38; ctx.fillStyle = "#1a1a1a"; ctx.font = "800 20px " + SLIP_FONT; ctx.fillText(clipText(ctx, p.name + " さん", cw), cx, ty);
+        ty += 14; ctx.strokeStyle = "#eceae2"; ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(cx + cw, ty); ctx.stroke();
+        rows.forEach(function (rw) {
+          ty += 30;
+          ctx.fillStyle = "#6f6d67"; ctx.font = "14px " + SLIP_FONT; ctx.textAlign = "left"; ctx.fillText(rw[0], cx, ty);
+          ctx.fillStyle = "#1a1a1a"; ctx.font = "600 14px " + SLIP_FONT; ctx.textAlign = "right"; ctx.fillText(rw[1], cx + cw, ty);
+        });
+        ty += 16; ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(cx + cw, ty); ctx.stroke(); ctx.lineWidth = 1;
+        ty += 30; ctx.textAlign = "left"; ctx.fillStyle = "#1a1a1a"; ctx.font = "700 15px " + SLIP_FONT; ctx.fillText("支給額", cx, ty);
+        ctx.textAlign = "right"; ctx.font = "800 26px " + SLIP_FONT; ctx.fillText("¥" + det.pay.toLocaleString(), cx + cw, ty);
+        ty += 32; ctx.textAlign = "left"; ctx.fillStyle = "#8a887f"; ctx.font = "11px " + SLIP_FONT;
+        ctx.fillText("深夜割増：22:00〜翌5:00は時給+25%。実働は休憩を差し引いた時間です。", cx, ty);
+        return y + H;
+      }
+      // 一覧（合計表）の高さと描画（プレビューのsummaryHtmlと同じ内容をcanvasに描く）
+      function summaryHeight(n) { return 194 + 30 * n; }
+      function drawSummary(ctx, x, y, w, per, ds, shifts) {
+        var PAD = 26, cx = x + PAD, cw = w - PAD * 2, list = workers(), H = summaryHeight(list.length);
+        ctx.fillStyle = "#ffffff"; roundRectPath(ctx, x, y, w, H, 16); ctx.fill();
+        ctx.strokeStyle = "#d9d8d1"; ctx.lineWidth = 1; roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, H - 1, 16); ctx.stroke();
+        ctx.textBaseline = "alphabetic";
+        var ty = y + PAD + 20;
+        ctx.textAlign = "left"; ctx.fillStyle = "#1a1a1a"; ctx.font = "700 21px " + SLIP_FONT; ctx.fillText("Bar Soutsu", cx, ty);
+        var bw = ctx.measureText("Bar Soutsu ").width;
+        ctx.fillStyle = "#9a7b32"; ctx.font = "700 14px " + SLIP_FONT; ctx.fillText("給与明細（一覧）", cx + bw + 4, ty);
+        ty += 24; ctx.fillStyle = "#6f6d67"; ctx.font = "13px " + SLIP_FONT;
+        ctx.fillText(per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）", cx, ty);
+        var xPay = cx + cw, xLate = cx + cw - 110, xWork = cx + cw - 210;
+        ty += 30; ctx.fillStyle = "#6f6d67"; ctx.font = "12px " + SLIP_FONT;
+        ctx.textAlign = "left"; ctx.fillText("メンバー", cx, ty);
+        ctx.textAlign = "right"; ctx.fillText("実働", xWork, ty); ctx.fillText("深夜", xLate, ty); ctx.fillText("支給額", xPay, ty);
+        ty += 6; ctx.strokeStyle = "#eceae2"; ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(cx + cw, ty); ctx.stroke();
+        var tPay = 0;
+        list.forEach(function (p) {
+          var det = payDetail(p, ds, shifts); tPay += det.pay;
+          ty += 30;
+          ctx.fillStyle = "#1a1a1a"; ctx.font = "14px " + SLIP_FONT; ctx.textAlign = "left"; ctx.fillText(clipText(ctx, p.name, xWork - cx - 56), cx, ty);
+          ctx.textAlign = "right"; ctx.font = "14px " + SLIP_FONT;
+          ctx.fillStyle = "#1a1a1a"; ctx.fillText(fmtDur(det.total), xWork, ty);
+          ctx.fillStyle = det.late > 0 ? "#1a1a1a" : "#8a887f"; ctx.fillText(det.late > 0 ? fmtDur(det.late) : "－", xLate, ty);
+          ctx.fillStyle = "#1a1a1a"; ctx.font = "600 14px " + SLIP_FONT; ctx.fillText(p.wage > 0 ? "¥" + det.pay.toLocaleString() : "記録のみ", xPay, ty);
+        });
+        ty += 12; ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(cx + cw, ty); ctx.stroke(); ctx.lineWidth = 1;
+        ty += 24; ctx.textAlign = "left"; ctx.fillStyle = "#1a1a1a"; ctx.font = "700 15px " + SLIP_FONT; ctx.fillText("合計", cx, ty);
+        ctx.textAlign = "right"; ctx.font = "800 18px " + SLIP_FONT; ctx.fillText("¥" + tPay.toLocaleString(), xPay, ty);
+        return y + H;
+      }
+      // 明細を画像(PNG)にする。選択に応じて 合計表／全員の個別／個人 を描く（プレビューと同じ内容）。
+      function makeSlipImage() {
+        var per = currentSlipPeriod(), ds = datesBetween(per.start, per.end), shifts = loadShifts();
+        var who = document.getElementById("slipWho").value, W = 560, GAP = 18, PADTOP = 16;
+        var totalH, draw, nameForFile;
+        if (who === "all") {
+          totalH = PADTOP * 2 + summaryHeight(workers().length);
+          draw = function (ctx) { drawSummary(ctx, 16, PADTOP, W - 32, per, ds, shifts); };
+          nameForFile = "一覧";
+        } else {
+          var list = (who === "each") ? workers().filter(function (p) { return p.wage > 0; })
+                                      : workers().filter(function (p) { return p.id === who; });
+          if (!list.length) { toast("給料が設定されたメンバーがいません（時給が0です）"); return; }
+          totalH = PADTOP * 2 + list.length * SLIP_H + (list.length - 1) * GAP;
+          draw = function (ctx) { var y = PADTOP; list.forEach(function (p) { y = drawSlip(ctx, 16, y, W - 32, p, per, payDetail(p, ds, shifts)) + GAP; }); };
+          nameForFile = (who === "each") ? "全員" : list[0].name;
+        }
+        var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.round(W * dpr); canvas.height = Math.round(totalH * dpr);
+        var ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr);
+        ctx.fillStyle = "#eeede8"; ctx.fillRect(0, 0, W, totalH);   // 背景（薄いグレーの台紙）
+        draw(ctx);
+        var url;
+        try { url = canvas.toDataURL("image/png"); } catch (e) { toast("画像の作成に失敗しました"); return; }
+        var img = document.getElementById("slipImage");
+        img.src = url; img.setAttribute("data-name", nameForFile);
+        document.getElementById("slipImageWrap").style.display = "block";
+      }
+      function saveSlipImage() {
+        var img = document.getElementById("slipImage");
+        if (!img.src) return;
+        var per = currentSlipPeriod();
+        var a = document.createElement("a");
+        a.href = img.src;
+        a.download = "給与明細_" + (img.getAttribute("data-name") || "") + "_" + per.label + ".png";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
       }
 
       // ═══════════════ 希望・備考欄 ═══════════════
@@ -1571,6 +1881,14 @@
       document.getElementById("salPrev").onclick = function () { salaryOffset--; renderSalary(); };
       document.getElementById("salNext").onclick = function () { salaryOffset++; renderSalary(); };
       document.getElementById("salCopy").onclick = copyPayslip;
+      document.getElementById("lineBtn").onclick = copyShiftLine;
+      document.getElementById("slipBtn").onclick = openSlipModal;
+      document.getElementById("slipClose").onclick = closeSlipModal;
+      document.getElementById("slipModalBg").onclick = function (e) { if (e.target === this) closeSlipModal(); };
+      document.getElementById("slipWho").onchange = renderSlipPreview;
+      document.getElementById("slipPrint").onclick = printSlips;
+      document.getElementById("slipImageBtn").onclick = makeSlipImage;
+      document.getElementById("slipSave").onclick = saveSlipImage;
       document.getElementById("addMember").onclick = addMember;
       document.getElementById("refreshBtn").onclick = refresh;
       document.getElementById("unlockBtn").onclick = openPinModal;
@@ -1598,6 +1916,7 @@
       updateConnBadge();
       // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）
       if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { _loaded = true; renderLogin(); toast("接続に失敗しました。🔄で再読み込みしてください。"); }); }
+      window.addEventListener("afterprint", clearPrintSlips);   // 印刷完了後は必ず印刷スタイル解除＋給与額の残骸を消す
       startAutoRefresh();  // 60秒ごとの自動更新を開始
     </script>
     <!-- 共通カテゴリタブを描画（全ツール共有の単一ファイル） -->
