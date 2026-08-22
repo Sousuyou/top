@@ -339,7 +339,7 @@
     <nav class="site-nav" id="site-nav"></nav>
     <div class="wrap">
       <div class="demo-banner" id="demoBanner">
-        🧪 <b>未接続（デモ）</b>です。データはこの端末の中だけに仮保存されます。ログイン画面の「接続設定」で共有URLを設定すると、みんなで共有できます。
+        <b>未接続（デモ）</b>です。データはこの端末の中だけに仮保存されます。ログイン画面の「接続設定」で共有URLを設定すると、みんなで共有できます。
       </div>
 
       <!-- ログイン -->
@@ -362,7 +362,7 @@
             <span class="sub">Bar Soutsu</span>
           </div>
           <div class="whoami">
-            <button class="small ghost" id="refreshBtn" title="最新に更新">🔄</button>
+            <button class="small ghost" id="refreshBtn" title="最新に更新">更新</button>
             <span class="role" id="whoLabel"></span>
             <button class="small ghost" id="switchBtn">切替</button>
           </div>
@@ -387,7 +387,7 @@
           <div class="card-head">
             <h3 id="shiftTitle">シフト</h3>
             <div class="head-actions">
-              <button class="small" id="lineBtn">📋 LINE用</button>
+              <button class="small" id="lineBtn">LINE用</button>
               <button class="small gold" id="cellBatchBtn" style="display:none">＋ まとめて編集</button>
               <button class="small gold" id="batchBtn" style="display:none">＋ まとめて申請</button>
               <button class="small primary" id="confirmBtn" style="display:none">確定する</button>
@@ -448,7 +448,7 @@
         <!-- 希望・備考欄 -->
         <div class="card">
           <div class="card-head">
-            <h3>📝 希望シフト・出勤頻度メモ<span id="noteMonth" style="font-weight:500;color:var(--muted)"></span></h3>
+            <h3>希望シフト・出勤頻度メモ<span id="noteMonth" style="font-weight:500;color:var(--muted)"></span></h3>
           </div>
           <div class="note-me" id="noteMe" style="display:none">
             <label id="noteMeLabel">あなたの希望（例：週3〜4日希望。金土は入れます。木は避けたいです）</label>
@@ -461,11 +461,11 @@
         <!-- 給与明細（オーナー専用） -->
         <div class="card salary-card" id="salaryCard" style="display:none">
           <div class="card-head">
-            <h3>💰 給与明細（あなただけが見られます）</h3>
-            <span class="lock-note">🔒 オーナー専用</span>
+            <h3>給与明細（あなただけが見られます）</h3>
+            <span class="lock-note">オーナー専用</span>
           </div>
           <div id="salaryLock" class="lock-box" style="display:none">
-            <p>🔒 給料はオーナー専用です。暗証番号（PIN）を入力すると表示されます。</p>
+            <p>給料はオーナー専用です。暗証番号（PIN）を入力すると表示されます。</p>
             <button class="small primary" id="unlockBtn">暗証番号を入力して表示</button>
           </div>
           <div id="payControls" class="pay-controls">
@@ -484,21 +484,21 @@
               <button class="small" id="salNext">次 ▶</button>
             </span>
             <button class="small" id="salCopy">明細をコピー</button>
-            <button class="small primary" id="slipBtn">📄 明細を作る（画像・印刷）</button>
+            <button class="small primary" id="slipBtn">明細を作る（画像・印刷）</button>
           </div>
           <div id="salaryTableWrap" class="table-scroll"><table class="salary" id="salaryTable"></table></div>
           <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間で、<b>休憩は勤務全体に按分</b>して差し引きます（通常も深夜も同じ割合で減る）。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
-          <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">🔓 この端末のパスワード保存を解除</button></div>
+          <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">この端末のパスワード保存を解除</button></div>
         </div>
 
         <!-- メンバー管理（オーナー専用） -->
         <div class="card manage-card" id="manageCard" style="display:none">
           <div class="card-head">
-            <h3>👥 メンバー管理</h3>
-            <span class="lock-note">🔒 オーナー専用</span>
+            <h3>メンバー管理</h3>
+            <span class="lock-note">オーナー専用</span>
           </div>
           <div id="manageLock" class="lock-box" style="display:none">
-            <p>🔒 メンバーの時給を扱うため、暗証番号（PIN）が必要です。</p>
+            <p>メンバーの時給を扱うため、暗証番号（PIN）が必要です。</p>
             <button class="small primary" id="unlockBtn2">暗証番号を入力</button>
           </div>
           <div id="manageList"></div>
@@ -515,7 +515,7 @@
     <!-- 暗証番号(PIN)入力モーダル -->
     <div class="modal-bg" id="pinModalBg">
       <div class="modal">
-        <h3>🔒 オーナーのパスワード</h3>
+        <h3>オーナーのパスワード</h3>
         <p class="msub">入力するとオーナーとしてログインします（給料・確定・メンバー管理が使えます）。</p>
         <input type="password" inputmode="numeric" autocomplete="off" id="pinInput" placeholder="パスワード（暗証番号）" />
         <label class="off-toggle" style="margin-top:12px"><input type="checkbox" id="pinRemember" checked /> <span style="color:var(--text);font-size:14px">この端末に保存して次回から自動でログイン</span></label>
@@ -573,7 +573,7 @@
     <!-- 給与明細（画像・印刷）モーダル -->
     <div class="modal-bg" id="slipModalBg">
       <div class="modal slip-modal">
-        <h3>📄 給与明細を作る</h3>
+        <h3>給与明細を作る</h3>
         <p class="msub" id="slipPeriod"></p>
         <label>だれの明細</label>
         <select id="slipWho"></select>
@@ -581,14 +581,14 @@
         <div id="slipImageWrap" style="display:none">
           <img id="slipImage" alt="給与明細" />
           <div class="actions" style="margin-top:10px">
-            <button class="small" id="slipSave">⬇ 画像を保存</button>
+            <button class="small" id="slipSave">画像を保存</button>
           </div>
           <p class="msub">スマホは画像を長押し、パソコンは右クリックでも保存・LINE送信できます。</p>
         </div>
         <div class="actions" style="flex-wrap:wrap">
           <button class="ghost" id="slipClose">閉じる</button>
-          <button id="slipPrint">🖨 印刷／PDF</button>
-          <button class="primary" id="slipImageBtn">🖼 画像にする</button>
+          <button id="slipPrint">印刷／PDF</button>
+          <button class="primary" id="slipImageBtn">画像にする</button>
         </div>
       </div>
     </div>
@@ -710,7 +710,7 @@
             .then(function () {
               done++;
               if (done < queue.length) { toast("同期中… " + done + "/" + queue.length); step(); }
-              else { pendingPush--; if (failed) toast(failed + "件が未同期。🔄で再送します。"); else if (doneMsg) toast(doneMsg); }
+              else { pendingPush--; if (failed) toast(failed + "件が未同期。「更新」で再送します。"); else if (doneMsg) toast(doneMsg); }
             });
         }
         for (var c = 0; c < Math.min(CONC, queue.length); c++) step();
@@ -814,7 +814,7 @@
       }
       function pushStaff() { if (CONNECTED) pushSafe("saveStaff", { pin: _pin, staff: STAFF }); }
       function updateConnBadge() {
-        var b = document.getElementById("connBadge"); if (b) b.textContent = CONNECTED ? "🟢 接続済み" : "⚪ ローカル(デモ)";
+        var b = document.getElementById("connBadge"); if (b) b.textContent = CONNECTED ? "接続済み" : "ローカル(デモ)";
         var db = document.getElementById("demoBanner"); if (db) db.style.display = CONNECTED ? "none" : "block";
       }
       function toast(msg) {
@@ -924,7 +924,7 @@
       // ═══════════════ ログイン ═══════════════
       function renderLogin() {
         var box = document.getElementById("peopleList");
-        if (CONNECTED && !_loaded) { box.innerHTML = "<div style='padding:26px 8px;color:var(--muted);font-size:14px'>🔄 スプレッドシートから読み込み中…</div>"; return; }
+        if (CONNECTED && !_loaded) { box.innerHTML = "<div style='padding:26px 8px;color:var(--muted);font-size:14px'>スプレッドシートから読み込み中…</div>"; return; }
         box.innerHTML = "";
         STAFF.forEach(function (p) {
           var b = document.createElement("button");
@@ -1165,7 +1165,7 @@
           var info = "<span class='dl-time'>" + rec.start + "〜" + rec.end + "</span> " + badge;
           var acts = "";
           if (isOwner) {
-            if (rec.status !== "confirmed") acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>✓確定</button>";
+            if (rec.status !== "confirmed") acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>確定</button>";
             acts += "<button class='small del-btn dl-remove' data-sid='" + p.id + "'>削除</button>";
             acts += "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>";
           } else if (currentUser.id === p.id) {
@@ -1261,7 +1261,7 @@
         });
         lines.push("", "人件費合計：¥" + total.toLocaleString());
         var text = lines.join("\n");
-        copyText(text, document.getElementById("salCopy"), "✓ コピーしました");
+        copyText(text, document.getElementById("salCopy"), "コピーしました");
       }
 
       // ═══════════════ 追加：確定シフトをLINE用テキストにする ═══════════════
@@ -1274,7 +1274,7 @@
       }
       // クリップボードにコピー（使えない環境ではテキストを表示）。btnを渡すと成功時にラベルを一瞬変える。
       function copyText(text, btn, okMsg) {
-        var ok = function () { if (btn) flash(btn, okMsg || "✓ コピーしました"); };
+        var ok = function () { if (btn) flash(btn, okMsg || "コピーしました"); };
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(ok, function () { alert(text); }); }
           else { alert(text); ok(); }
@@ -1297,7 +1297,7 @@
         });
         if (!blocks.length) { toast("この期間に確定済みのシフトがありません"); return; }
         var text = "🍸 Bar Soutsu シフト\n" + rangeLabel() + "\n\n" + blocks.join("\n\n");
-        copyText(text, document.getElementById("lineBtn"), "✓ LINE用にコピー");
+        copyText(text, document.getElementById("lineBtn"), "コピーしました");
       }
 
       // ═══════════════ 追加：給与明細（画像・印刷）═══════════════
@@ -1538,7 +1538,7 @@
         saveNotes(notes);
         pushSafe("saveNote", { monthKey: mk, staffId: currentUser.id, text: txt });
         renderNotes();
-        flash(document.getElementById("noteSave"), "✓ 保存しました");
+        flash(document.getElementById("noteSave"), "保存しました");
       }
       function flash(btn, txt) { var o = btn.textContent; btn.textContent = txt; setTimeout(function () { btn.textContent = o; }, 1300); }
 
@@ -1577,7 +1577,7 @@
         p.wage = Math.max(0, parseInt(row.querySelector(".m-wage").value, 10) || 0);
         p.worker = true;
         saveStaff(); pushStaff(); render();
-        flash(row.querySelector(".m-save"), "✓");
+        flash(row.querySelector(".m-save"), "済");
       }
       function deleteMember(id) {
         var p = STAFF.filter(function (x) { return x.id === id; })[0]; if (!p) return;
@@ -1610,7 +1610,7 @@
         var targetLabel = nd.target.getFullYear() + "年" + (nd.target.getMonth() + 1) + "月";
         var dl = (nd.deadline.getMonth() + 1) + "/" + nd.deadline.getDate();
         var left = nd.daysLeft > 0 ? "あと" + nd.daysLeft + "日" : (nd.daysLeft === 0 ? "本日締切" : "締切をすぎています");
-        var main = "📅 <b>" + targetLabel + "分</b>の希望シフト提出は <b>" + dl + "</b> まで（" + left + "）";
+        var main = "<b>" + targetLabel + "分</b>の希望シフト提出は <b>" + dl + "</b> まで（" + left + "）";
         var extra = "";
         if (actingOwner()) {
           var shifts = loadShifts();
@@ -1915,7 +1915,7 @@
       renderLogin();
       updateConnBadge();
       // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）
-      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { _loaded = true; renderLogin(); toast("接続に失敗しました。🔄で再読み込みしてください。"); }); }
+      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { _loaded = true; renderLogin(); toast("接続に失敗しました。「更新」で再読み込みしてください。"); }); }
       window.addEventListener("afterprint", clearPrintSlips);   // 印刷完了後は必ず印刷スタイル解除＋給与額の残骸を消す
       startAutoRefresh();  // 60秒ごとの自動更新を開始
     </script>
