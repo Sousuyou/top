@@ -450,7 +450,7 @@
             <button class="small" id="salCopy">明細をコピー</button>
           </div>
           <div id="salaryTableWrap" class="table-scroll"><table class="salary" id="salaryTable"></table></div>
-          <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間です。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
+          <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間で、<b>休憩は勤務全体に按分</b>して差し引きます（通常も深夜も同じ割合で減る）。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
           <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">🔓 この端末のパスワード保存を解除</button></div>
         </div>
 
@@ -598,24 +598,33 @@
       var pendingPush = 0;   // 送信中の書き込み件数（更新の取りこぼし防止に使う）
       var retryQueue = [];   // 送信失敗ぶんを貯めて自動再送（{action,payload}を保持）
       var pushChains = {};   // 同じマスへの連続書き込みを直列化するための待ち行列（キー→Promise）
-      function pushSafe(action, payload) {
-        if (!CONNECTED) return;
-        pendingPush++;
-        var run = function () {
-          return api(action, payload).then(function (res) {
-            if (!res || !res.ok) { requeue({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
-          }).catch(function () { requeue({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
-            .then(function () { pendingPush--; });
-        };
-        // 同じマス(日付+スタッフ)への saveShift→deleteShift 等は、前の送信が終わってから順に送る。
-        // 2連続で撃つと到着順が逆転し、「削除→古い保存が後着で復活」する事故が起きうるため直列化する。
-        var key = (action === "saveShift" || action === "deleteShift") ? ("shift|" + payload.date + "|" + payload.staffId)
-                : (action === "saveNote") ? ("note|" + payload.monthKey + "|" + payload.staffId) : null;
-        if (!key) { run(); return; }
+      // 同一マス(日付+スタッフ)/同一メモを直列化するためのキー
+      function pushKey(action, p) {
+        p = p || {};
+        if (action === "saveShift" || action === "deleteShift") return "shift|" + p.date + "|" + p.staffId;
+        if (action === "saveNote") return "note|" + p.monthKey + "|" + p.staffId;
+        return null;
+      }
+      // api()をキー単位で直列化して呼ぶ。単発(pushSafe)もまとめ送信(sendQueue)も同じ行なら順番を守る。
+      // 2連続で撃つと到着順が逆転し「削除→古い保存が後着で復活」する事故が起きうるため。
+      function chainedApi(action, payload) {
+        var key = pushKey(action, payload);
+        var run = function () { return api(action, payload); };
+        if (!key) return run();
         var prev = pushChains[key] || Promise.resolve();
         var cur = prev.then(run, run);   // 前の同キー送信の完了後に実行（成功・失敗どちらでも次へ）
         pushChains[key] = cur;
-        cur.then(function () { if (pushChains[key] === cur) delete pushChains[key]; });
+        var clear = function () { if (pushChains[key] === cur) delete pushChains[key]; };
+        cur.then(clear, clear);
+        return cur;
+      }
+      function pushSafe(action, payload) {
+        if (!CONNECTED) return;
+        pendingPush++;
+        chainedApi(action, payload).then(function (res) {
+          if (!res || !res.ok) { requeue({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
+        }).catch(function () { requeue({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
+          .then(function () { pendingPush--; });
       }
       // 再送キューへ積む（試行回数を数え、5回を超えたら捨ててスパムと無限リトライを防ぐ）
       function requeue(item) { item.attempts = (item.attempts || 0) + 1; if (item.attempts <= 5) retryQueue.push(item); }
@@ -638,7 +647,7 @@
         function step() {
           if (idx >= queue.length) return;
           var q = queue[idx++];
-          api(q.action, q.payload).then(function (res) {
+          chainedApi(q.action, q.payload).then(function (res) {   // 単発pushSafeと同じ行なら直列化（競合防止）
             if (!res || !res.ok) { failed++; requeue(q); }
           }).catch(function () { failed++; requeue(q); })
             .then(function () {
@@ -706,7 +715,7 @@
           if (document.getElementById("pinModalBg").classList.contains("show")) return;
           if (document.getElementById("dayModalBg").classList.contains("show")) return;   // 日一覧を開いている間は避ける
           if (retryQueue.length) { flushRetry(); return; }                         // 再送を優先し、pullは次tickへ（競合回避）
-          var sig = function () { return JSON.stringify(_shifts) + "|" + JSON.stringify(_notes) + "|" + STAFF.map(function (p) { return p.id + p.name + p.role + p.worker + p.owner; }).join(","); };
+          var sig = function () { return JSON.stringify(_shifts) + "|" + JSON.stringify(_notes) + "|" + JSON.stringify(_settings) + "|" + STAFF.map(function (p) { return p.id + p.name + p.role + p.worker + p.owner; }).join(","); };
           var before = sig();
           pullAll().then(function () { if (sig() !== before) render(); }).catch(function () {});
         }, 60000);
@@ -848,14 +857,17 @@
         var s = toMin(rec.start), e = toMin(rec.end);
         // 不正な時刻（終了≤開始、NaN）は0時間扱いにして計算の暴走を防ぐ（正常入力は翌5:00等を24+で表すのでe>s）
         if (isNaN(s) || isNaN(e) || e <= s) return { total: 0, normal: 0, late: 0, gross: 0, brk: rec.break || 0 };
+        e = Math.min(e, 30 * 60);                                   // 上限は翌6:00(=30:00)。誤って30:xxを選んでも超過分は数えない
+        if (e <= s) return { total: 0, normal: 0, late: 0, gross: 0, brk: rec.break || 0 };
         var gross = (e - s) / 60;                                   // 休憩を引く前の在店時間
         var lateGross = Math.max(0, Math.min(e, LATE_END) - Math.max(s, LATE_START)) / 60;
         var normalGross = gross - lateGross;
         var brk = (rec.break || 0) / 60;                           // 休憩（時間）
-        // 休憩は通常時間から先に差し引く（バーは早い時間に休憩を取る想定）。
-        // 通常で足りない分だけ深夜から差し引く。
-        var normal = Math.max(0, normalGross - brk);
-        var late = Math.max(0, lateGross - Math.max(0, brk - normalGross));
+        // 休憩は「どこで取るか決めず」勤務全体に均等按分して差し引く（通常も深夜も同じ割合で減る）。
+        // ＝実働 = 在店 − 休憩。深夜手当は按分後の深夜時間に対して計算する（休憩時間帯の思い込みによる偏りを無くす）。
+        var ratio = gross > 0 ? Math.max(0, (gross - brk) / gross) : 0;
+        var normal = normalGross * ratio;
+        var late = lateGross * ratio;
         return { total: normal + late, normal: normal, late: late, gross: gross, brk: rec.break || 0 };
       }
       function hoursOf(rec) { return splitHours(rec).total; }
