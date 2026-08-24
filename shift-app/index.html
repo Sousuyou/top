@@ -461,7 +461,7 @@
         <!-- 給与明細（オーナー専用） -->
         <div class="card salary-card" id="salaryCard" style="display:none">
           <div class="card-head">
-            <h3>給与明細（あなただけが見られます）</h3>
+            <h3>支給額の目安（あなただけが見られます）</h3>
             <span class="lock-note">オーナー専用</span>
           </div>
           <div id="salaryLock" class="lock-box" style="display:none">
@@ -487,7 +487,7 @@
             <button class="small primary" id="slipBtn">明細を作る（画像・印刷）</button>
           </div>
           <div id="salaryTableWrap" class="table-scroll"><table class="salary" id="salaryTable"></table></div>
-          <div class="hint" id="salaryHint">給料 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は<b>休憩を差し引いた</b>時間で、<b>休憩は勤務全体に按分</b>して差し引きます（通常も深夜も同じ割合で減る）。締め日で区切った期間の集計で、確定前の希望も参考として含みます。残業割増・端数調整は本番で追加できます。</div>
+          <div class="hint" id="salaryHint">計算 = 通常時間 × 時給 ＋ 深夜時間 × 時給 × 1.25（<b>22:00〜翌5:00は深夜割増+25%</b>）。実働は休憩を差し引いた時間で、休憩は勤務全体に按分します。<b>確定したシフトだけ</b>で集計します。<br><b>※この金額は控除前の“額面の目安”です。</b>社会保険・雇用保険・税・交通費や、<b>残業割増（1日8時間／週40時間超）・休日割増は含みません</b>。手取り額や正式な給与明細は、給与計算ソフトや社労士・税理士でご確認ください。</div>
           <div id="forgetPinWrap" style="padding:0 16px 14px"><button class="small ghost" id="forgetPin">この端末のパスワード保存を解除</button></div>
         </div>
 
@@ -503,7 +503,7 @@
           </div>
           <div id="manageList"></div>
           <div id="manageAddWrap" style="padding:12px 16px"><button class="small" id="addMember">＋ メンバーを追加</button></div>
-          <div class="hint" id="manageHint">名前・時給を変えたら各行の「保存」を押してください。時給を 0 にすると給料は出さず「記録のみ」になります。役割を「オーナー」にすると、その人も給料を見られます。</div>
+          <div class="hint" id="manageHint">名前・時給を変えたら各行の「保存」を押してください。時給を 0 にすると給料は出さず「記録のみ」になります。役割を「オーナー」にすると、その人も給料を見られます。<br><b>※時給は、各都道府県の最低賃金（毎年10月改定）を下回らないようご確認ください。</b>アプリは最低賃金の判定をしません。</div>
         </div>
 
         <div class="foot">Bar Soutsu ツールズ ｜ 勤怠管理</div>
@@ -573,17 +573,18 @@
     <!-- 給与明細（画像・印刷）モーダル -->
     <div class="modal-bg" id="slipModalBg">
       <div class="modal slip-modal">
-        <h3>給与明細を作る</h3>
+        <h3>支給額メモを作る</h3>
         <p class="msub" id="slipPeriod"></p>
-        <label>だれの明細</label>
+        <p class="msub" style="color:var(--red)">取り扱い注意：給与は個人情報です。本人以外に送らないでください。控除前の額面の目安で、正式な給与明細ではありません。</p>
+        <label>だれの分</label>
         <select id="slipWho"></select>
         <div id="slipPreview" class="slip-preview"></div>
         <div id="slipImageWrap" style="display:none">
-          <img id="slipImage" alt="給与明細" />
+          <img id="slipImage" alt="支給額メモ" />
           <div class="actions" style="margin-top:10px">
             <button class="small" id="slipSave">画像を保存</button>
           </div>
-          <p class="msub">スマホは画像を長押し、パソコンは右クリックでも保存・LINE送信できます。</p>
+          <p class="msub">スマホは画像を長押し、パソコンは右クリックでも保存できます。<b>送り先を間違えないようご注意ください（本人だけに渡す）。</b></p>
         </div>
         <div class="actions" style="flex-wrap:wrap">
           <button class="ghost" id="slipClose">閉じる</button>
@@ -1220,10 +1221,15 @@
         while (d <= end) { arr.push(new Date(d)); d.setDate(d.getDate() + 1); }
         return arr;
       }
-      // 1人分の集計（この締め期間の 実働・深夜・支給額）
+      // 1人分の集計（この締め期間の 実働・深夜・支給額）。
+      // 給与は「確定(confirmed)」したシフトだけで計算する（未確定の希望は金額に入れない＝暫定額での誤解・誤配布を防ぐ）。
       function payOf(p, ds, shifts) {
         var normal = 0, late = 0;
-        ds.forEach(function (d) { var sp = splitHours(shifts[iso(d)] && shifts[iso(d)][p.id]); normal += sp.normal; late += sp.late; });
+        ds.forEach(function (d) {
+          var rec = shifts[iso(d)] && shifts[iso(d)][p.id];
+          if (!rec || rec.status !== "confirmed") return;   // 確定分のみ
+          var sp = splitHours(rec); normal += sp.normal; late += sp.late;
+        });
         var total = normal + late;
         var premium = p.wage > 0 ? Math.round(late * p.wage * LATE_RATE) : 0;
         var pay = p.wage > 0 ? Math.round(total * p.wage) + premium : 0;
@@ -1251,15 +1257,18 @@
         t.innerHTML = rows;
       }
       function copyPayslip() {
+        // 全員の支給額（個人情報）をまとめてコピーするので、誤送信を防ぐため確認を挟む
+        if (!confirm("全員の支給額（個人情報）をコピーします。\n貼り付け先を間違えて本人以外に送らないようご注意ください。よろしいですか？")) return;
         var shifts = loadShifts(), per = closingPeriod(salaryOffset), ds = datesBetween(per.start, per.end);
-        var lines = ["【給与明細】" + per.label + "（" + per.sub + " " + (per.start.getMonth() + 1) + "/" + per.start.getDate() + "〜" + (per.end.getMonth() + 1) + "/" + per.end.getDate() + "）", ""];
+        var lines = ["【支給額メモ（額面の目安）】" + per.label + "（" + per.sub + " " + (per.start.getMonth() + 1) + "/" + per.start.getDate() + "〜" + (per.end.getMonth() + 1) + "/" + per.end.getDate() + "）", ""];
         var total = 0;
         workers().forEach(function (p) {
           var r = payOf(p, ds, shifts);
           if (p.wage > 0) { total += r.pay; lines.push(p.name + "：実働" + fmtDur(r.total) + "（深夜" + fmtDur(r.late) + "） 時給¥" + p.wage.toLocaleString() + " → ¥" + r.pay.toLocaleString()); }
           else { lines.push(p.name + "：実働" + fmtDur(r.total) + "（深夜" + fmtDur(r.late) + "） 記録のみ"); }
         });
-        lines.push("", "人件費合計：¥" + total.toLocaleString());
+        lines.push("", "合計：¥" + total.toLocaleString());
+        lines.push("※確定分で集計した控除前の額面の目安。保険料・税・残業/休日割増・交通費は含みません。正式な給与明細ではありません。");
         var text = lines.join("\n");
         copyText(text, document.getElementById("salCopy"), "コピーしました");
       }
@@ -1306,14 +1315,18 @@
       // 1人分の明細に必要な数値（給与計算payOfに「出勤日数」を足したもの。給料表と同じ集計を使う）
       function payDetail(p, ds, shifts) {
         var d = payOf(p, ds, shifts), days = 0;
-        ds.forEach(function (dt) { if (splitHours(shifts[iso(dt)] && shifts[iso(dt)][p.id]).total > 0) days++; });
+        ds.forEach(function (dt) {
+          var rec = shifts[iso(dt)] && shifts[iso(dt)][p.id];
+          if (!rec || rec.status !== "confirmed") return;   // 出勤日数も確定分のみ数える
+          if (splitHours(rec).total > 0) days++;
+        });
         return { days: days, total: d.total, late: d.late, premium: d.premium, pay: d.pay, wage: p.wage };
       }
       // 明細1枚分のHTML（プレビュー・印刷で共用）
       function slipCardHtml(p, per, det) {
         function r(l, v) { return "<tr><td>" + l + "</td><td>" + v + "</td></tr>"; }
         return "<div class='pay-slip'>" +
-          "<div class='ps-brand'>🍸 Bar Soutsu<span>給与明細</span></div>" +
+          "<div class='ps-brand'>🍸 Bar Soutsu<span>支給額メモ</span></div>" +
           "<div class='ps-period'>" + per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）</div>" +
           "<div class='ps-name'>" + escapeHtml(p.name) + " さん</div>" +
           "<table class='ps-table'>" +
@@ -1324,7 +1337,7 @@
             r("深夜手当", det.premium > 0 ? "¥" + det.premium.toLocaleString() : "－") +
           "</table>" +
           "<div class='ps-total'><span>支給額</span><b>¥" + det.pay.toLocaleString() + "</b></div>" +
-          "<div class='ps-foot'>深夜割増：22:00〜翌5:00は時給+25%。実働は休憩を差し引いた時間です。</div>" +
+          "<div class='ps-foot'>深夜割増：22:00〜翌5:00は時給+25%。実働は休憩を差し引いた時間です（確定分で集計）。<br>これは控除前の“額面の目安”です。社会保険・雇用保険・税・交通費や、残業・休日の割増は含みません。正式な給与明細ではありません。</div>" +
         "</div>";
       }
       // 全員一覧のHTML（プレビュー・印刷で共用）
@@ -1336,10 +1349,11 @@
             (det.late > 0 ? fmtDur(det.late) : "－") + "</td><td>" + (p.wage > 0 ? "¥" + det.pay.toLocaleString() : "記録のみ") + "</td></tr>";
         });
         return "<div class='pay-slip summary'>" +
-          "<div class='ps-brand'>🍸 Bar Soutsu<span>給与明細（一覧）</span></div>" +
+          "<div class='ps-brand'>🍸 Bar Soutsu<span>支給額メモ（一覧）</span></div>" +
           "<div class='ps-period'>" + per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）</div>" +
           "<table class='ps-sumtable'><thead><tr><th>メンバー</th><th>実働</th><th>深夜</th><th>支給額</th></tr></thead><tbody>" + rows +
           "</tbody><tfoot><tr><td>合計</td><td></td><td></td><td>¥" + tPay.toLocaleString() + "</td></tr></tfoot></table>" +
+          "<div class='ps-foot'>確定分で集計した、控除前の“額面の目安”です。社会保険・雇用保険・税・交通費や、残業・休日の割増は含みません。正式な給与明細ではありません。</div>" +
         "</div>";
       }
       function openSlipModal() {
@@ -1417,7 +1431,7 @@
         var ty = y + PAD + 20;
         ctx.fillStyle = "#1a1a1a"; ctx.font = "700 21px " + SLIP_FONT; ctx.fillText("Bar Soutsu", cx, ty);
         var bw = ctx.measureText("Bar Soutsu ").width;
-        ctx.fillStyle = "#9a7b32"; ctx.font = "700 14px " + SLIP_FONT; ctx.fillText("給与明細", cx + bw + 4, ty);
+        ctx.fillStyle = "#9a7b32"; ctx.font = "700 14px " + SLIP_FONT; ctx.fillText("支給額メモ", cx + bw + 4, ty);
         ty += 24; ctx.fillStyle = "#6f6d67"; ctx.font = "13px " + SLIP_FONT;
         ctx.fillText(per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）", cx, ty);
         ty += 38; ctx.fillStyle = "#1a1a1a"; ctx.font = "800 20px " + SLIP_FONT; ctx.fillText(clipText(ctx, p.name + " さん", cw), cx, ty);
@@ -1430,12 +1444,14 @@
         ty += 16; ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(cx + cw, ty); ctx.stroke(); ctx.lineWidth = 1;
         ty += 30; ctx.textAlign = "left"; ctx.fillStyle = "#1a1a1a"; ctx.font = "700 15px " + SLIP_FONT; ctx.fillText("支給額", cx, ty);
         ctx.textAlign = "right"; ctx.font = "800 26px " + SLIP_FONT; ctx.fillText("¥" + det.pay.toLocaleString(), cx + cw, ty);
-        ty += 32; ctx.textAlign = "left"; ctx.fillStyle = "#8a887f"; ctx.font = "11px " + SLIP_FONT;
-        ctx.fillText("深夜割増：22:00〜翌5:00は時給+25%。実働は休憩を差し引いた時間です。", cx, ty);
+        ty += 28; ctx.textAlign = "left"; ctx.fillStyle = "#8a887f"; ctx.font = "11px " + SLIP_FONT;
+        ctx.fillText("深夜割増+25%。休憩を差し引いた実働で、確定分のみ集計。", cx, ty);
+        ty += 15;
+        ctx.fillText("保険料・税・残業/休日割増・交通費は含まない額面の目安（正式な給与明細ではありません）。", cx, ty);
         return y + H;
       }
       // 一覧（合計表）の高さと描画（プレビューのsummaryHtmlと同じ内容をcanvasに描く）
-      function summaryHeight(n) { return 194 + 30 * n; }
+      function summaryHeight(n) { return 226 + 30 * n; }
       function drawSummary(ctx, x, y, w, per, ds, shifts) {
         var PAD = 26, cx = x + PAD, cw = w - PAD * 2, list = workers(), H = summaryHeight(list.length);
         ctx.fillStyle = "#ffffff"; roundRectPath(ctx, x, y, w, H, 16); ctx.fill();
@@ -1444,7 +1460,7 @@
         var ty = y + PAD + 20;
         ctx.textAlign = "left"; ctx.fillStyle = "#1a1a1a"; ctx.font = "700 21px " + SLIP_FONT; ctx.fillText("Bar Soutsu", cx, ty);
         var bw = ctx.measureText("Bar Soutsu ").width;
-        ctx.fillStyle = "#9a7b32"; ctx.font = "700 14px " + SLIP_FONT; ctx.fillText("給与明細（一覧）", cx + bw + 4, ty);
+        ctx.fillStyle = "#9a7b32"; ctx.font = "700 14px " + SLIP_FONT; ctx.fillText("支給額メモ（一覧）", cx + bw + 4, ty);
         ty += 24; ctx.fillStyle = "#6f6d67"; ctx.font = "13px " + SLIP_FONT;
         ctx.fillText(per.label + "（" + per.sub + " " + fmtMD(per.start) + "〜" + fmtMD(per.end) + "）", cx, ty);
         var xPay = cx + cw, xLate = cx + cw - 110, xWork = cx + cw - 210;
@@ -1465,6 +1481,10 @@
         ty += 12; ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(cx + cw, ty); ctx.stroke(); ctx.lineWidth = 1;
         ty += 24; ctx.textAlign = "left"; ctx.fillStyle = "#1a1a1a"; ctx.font = "700 15px " + SLIP_FONT; ctx.fillText("合計", cx, ty);
         ctx.textAlign = "right"; ctx.font = "800 18px " + SLIP_FONT; ctx.fillText("¥" + tPay.toLocaleString(), xPay, ty);
+        ty += 28; ctx.textAlign = "left"; ctx.fillStyle = "#8a887f"; ctx.font = "11px " + SLIP_FONT;
+        ctx.fillText("確定分で集計した控除前の額面の目安。", cx, ty);
+        ty += 15;
+        ctx.fillText("保険料・税・残業/休日割増・交通費は含みません（正式な給与明細ではありません）。", cx, ty);
         return y + H;
       }
       // 明細を画像(PNG)にする。選択に応じて 合計表／全員の個別／個人 を描く（プレビューと同じ内容）。
@@ -1589,7 +1609,7 @@
         render();
       }
       function addMember() {
-        STAFF.push({ id: newMemberId(), name: "新しいメンバー", role: "スタッフ", wage: 1000, worker: true });
+        STAFF.push({ id: newMemberId(), name: "新しいメンバー", role: "スタッフ", wage: 0, worker: true });   // 初期は0(記録のみ)。最低賃金割れを避けるため時給は明示的に設定してもらう
         saveStaff(); pushStaff(); renderManage();
       }
 
