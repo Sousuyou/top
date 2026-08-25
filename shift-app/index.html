@@ -654,7 +654,8 @@
           .then(function (j) { if (timer) clearTimeout(timer); return j; }, function (e) { if (timer) clearTimeout(timer); throw e; });
       }
       var pendingPush = 0;   // 送信中の書き込み件数（更新の取りこぼし防止に使う）
-      var retryQueue = [];   // 送信失敗ぶんを貯めて自動再送（{action,payload}を保持）
+      var retryQueue = store.read("retry_queue", []) || [];   // 送信失敗ぶんを貯めて自動再送。端末に保存し、再読み込みで消えない（＝データ喪失を防ぐ）
+      function persistRetry() { try { store.write("retry_queue", retryQueue); } catch (e) {} }   // 未送信ぶんを端末に保存
       var pushChains = {};   // 同じマスへの連続書き込みを直列化するための待ち行列（キー→Promise）
       // 同一マス(日付+スタッフ)/同一メモを直列化するためのキー
       function pushKey(action, p) {
@@ -685,7 +686,7 @@
           .then(function () { pendingPush--; });
       }
       // 再送キューへ積む（試行回数を数え、5回を超えたら捨ててスパムと無限リトライを防ぐ）
-      function requeue(item) { item.attempts = (item.attempts || 0) + 1; if (item.attempts <= 5) retryQueue.push(item); }
+      function requeue(item) { item.attempts = (item.attempts || 0) + 1; if (item.attempts <= 5) retryQueue.push(item); persistRetry(); }
       // 再送の重複排除キー（同じマス等は最後の1件だけ送る）
       function retryKey(item) {
         var p = item.payload || {};
@@ -696,12 +697,12 @@
         if (item.action === "saveStaff") return "staff";
         return item.action + "|" + JSON.stringify(p);
       }
-      // {action,payload} の配列を最大3件ずつ順に送る（同時に送りすぎるとGASが取りこぼすため）。
+      // {action,payload} の配列を「1件ずつ順番に」送る（同時に送るとGAS側のロック(15秒)が混み合い一部が取りこぼされるため）。
       // 失敗ぶんは元のactionのまま再送キューへ。まとめ同期中は自動更新を止める（pendingPush）。
       function sendQueue(queue, doneMsg) {
         if (!CONNECTED || !queue || !queue.length) return;
         pendingPush++;
-        var idx = 0, done = 0, failed = 0, CONC = 3;
+        var idx = 0, done = 0, failed = 0, CONC = 1;   // 直列送信（同時送信の取りこぼしを防ぐ）
         function step() {
           if (idx >= queue.length) return;
           var q = queue[idx++];
@@ -722,7 +723,7 @@
       }
       function flushRetry() {
         if (!CONNECTED || !retryQueue.length) return;
-        var q = retryQueue; retryQueue = [];
+        var q = retryQueue; retryQueue = []; persistRetry();
         // 同じマス等は最後の1件だけ残す（save→deleteの順序不定や重複送信を防ぐ）
         var seen = {}, dedup = [];
         for (var i = q.length - 1; i >= 0; i--) { var k = retryKey(q[i]); if (seen[k]) continue; seen[k] = true; dedup.unshift(q[i]); }
@@ -1934,8 +1935,9 @@
       setHM(document.getElementById("cellBatchEndH"), document.getElementById("cellBatchEndM"), "24:00");
       renderLogin();
       updateConnBadge();
-      // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）
-      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); }).catch(function () { _loaded = true; renderLogin(); toast("接続に失敗しました。「更新」で再読み込みしてください。"); }); }
+      // 接続済みなら、起動時に最新データを取得（失敗してもローカル表示で続行）。
+      // 前回の未送信ぶん（端末に保存済み）があれば、取得後に自動で再送する（リロードでも消えない）。
+      if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); if (retryQueue.length) flushRetry(); }).catch(function () { _loaded = true; renderLogin(); if (retryQueue.length) flushRetry(); toast("接続に失敗しました。「更新」で再読み込みしてください。"); }); }
       window.addEventListener("afterprint", clearPrintSlips);   // 印刷完了後は必ず印刷スタイル解除＋給与額の残骸を消す
       startAutoRefresh();  // 60秒ごとの自動更新を開始
     </script>
