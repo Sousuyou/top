@@ -372,8 +372,8 @@
 
         <div class="viewbar">
           <div class="seg">
-            <button id="weekModeBtn" class="on">週</button>
-            <button id="monthModeBtn">月</button>
+            <button id="weekModeBtn">週</button>
+            <button id="monthModeBtn" class="on">月</button>
           </div>
           <div class="navctrls">
             <button class="small" id="prevBtn">←</button>
@@ -825,7 +825,7 @@
       }
 
       var currentUser = null;
-      var viewMode = "week";     // 'week' | 'month'
+      var viewMode = "month";    // 'week' | 'month'（既定は月カレンダー。週表示は切替で使える）
       var weekOffset = 0;
       var monthOffset = 0;
       var editing = null;        // {sid, date}
@@ -982,7 +982,7 @@
         if (CONNECTED) STAFF.forEach(function (p) { p.wage = 0; }); // 給料は再度PINを通すまで0に
         // 認証・表示位置も初期化（前のユーザーの締め期間や表示週が次の人に残らないように）
         pendingOwnerId = null; authBusy = false; pinBusy = false;
-        salaryOffset = 0; viewMode = "week"; weekOffset = 0; monthOffset = 0; editing = null;
+        salaryOffset = 0; viewMode = "month"; weekOffset = 0; monthOffset = 0; editing = null;
         // 選択モードやパネルの残骸を確実に消す（再ログイン後の壊れ状態を防ぐ）
         selectMode = false; selectedDays = {}; cellSelectMode = false; selectedCells = {};
         var bp = document.getElementById("batchPanel"); if (bp) bp.style.display = "none";
