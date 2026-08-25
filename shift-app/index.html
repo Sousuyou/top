@@ -321,6 +321,12 @@
       .slip-preview { margin:14px 0; max-height:46vh; overflow:auto; background:var(--panel-soft); border-radius:12px; padding:14px 8px; }
       #slipImage { max-width:100%; border:1px solid var(--line); border-radius:10px; display:block; }
 
+      /* ── 送信中（閉じないで）バナー ── */
+      .sending-overlay { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #fff; padding: 10px 18px; border-radius: 12px; box-shadow: var(--shadow); z-index: 200; display: none; max-width: 92%; text-align: center; }
+      .sending-overlay.show { display: block; }
+      .sending-overlay .st { font-size: 14px; font-weight: 800; }
+      .sending-overlay .ss { font-size: 12px; opacity: .95; margin-top: 2px; }
+
       /* ── 印刷（給与明細だけをきれいに出す。印刷ダイアログで「PDFとして保存」も可） ──
          印刷スタイルは body.slip-printing の間だけ有効。こうしないと、通常のブラウザ印刷(Cmd/Ctrl+P)で
          アプリ本体(.wrap)が消えて白紙になったり、前に作った明細が残って給与額が漏れたりする。 */
@@ -512,6 +518,12 @@
 
     <div id="toast" class="toast"></div>
 
+    <!-- 送信中（閉じないで）バナー -->
+    <div id="sendingOverlay" class="sending-overlay">
+      <div class="st">シフトを送信中です<span id="sendingCount"></span></div>
+      <div class="ss">画面を閉じたり更新したりしないでください。</div>
+    </div>
+
     <!-- 暗証番号(PIN)入力モーダル -->
     <div class="modal-bg" id="pinModalBg">
       <div class="modal">
@@ -700,29 +712,36 @@
         retryQueue.push(item);
         persistRetry();
       }
+      // 「送信中（閉じないで）」バナー。まとめ送信の間だけ表示する。
+      function showSending(n) { updateSending(n); var el = document.getElementById("sendingOverlay"); if (el) el.classList.add("show"); }
+      function updateSending(n) { var t = document.getElementById("sendingCount"); if (t) t.textContent = (n > 0 ? "（残り" + n + "件）" : ""); }
+      function hideSending() { var el = document.getElementById("sendingOverlay"); if (el) el.classList.remove("show"); }
       // outbox を1件ずつ送る。成功したら箱から消す（＝保存確定）。失敗はそのまま残し、次の機会に再送。
       function drainOutbox(doneMsg) {
         if (!CONNECTED || draining || !retryQueue.length) return;
         draining = true; pendingPush++;
-        var many = retryQueue.length > 1, skip = {};   // skip=この回で失敗した項目（次の機会まで再試行しない）
+        var many = retryQueue.length > 1, skip = {}, didSend = false;   // skip=この回で失敗した項目（次の機会まで再試行しない）
+        if (many) showSending(retryQueue.length);   // まとめ送信中は「送信中（閉じないで）」を表示
         function bump(item) { item.attempts = (item.attempts || 0) + 1; persistRetry(); }   // 送れるまで保持（未送信ぶんは黙って捨てない）
         function next() {
           var item = null;
           for (var i = 0; i < retryQueue.length; i++) { if (!skip[retryKey(retryQueue[i])]) { item = retryQueue[i]; break; } }
           if (!item) {
-            pendingPush--; draining = false;
+            pendingPush--; draining = false; hideSending();
             var left = retryQueue.length;
             if (left) toast(left + "件が未送信です（次にアプリを開くと自動で送ります）");
             else if (doneMsg) toast(doneMsg);
+            // 送信が終わったら画面をサーバーの確定状態に自動更新（「同期中」のあと画面が変わらない問題を解消）
+            if (didSend && !left && CONNECTED) { pullAll().then(function () { if (currentUser) render(); }).catch(function () {}); }
             return;
           }
           chainedApi(item.action, item.payload).then(function (res) {
             // 成功したら「送った本人」だけ消す（キー一致で消すと、送信中に同じマスを再編集/削除した最新分まで巻き添えで消えてしまう）
-            if (res && res.ok) { retryQueue = retryQueue.filter(function (x) { return x !== item; }); persistRetry(); }
+            if (res && res.ok) { didSend = true; retryQueue = retryQueue.filter(function (x) { return x !== item; }); persistRetry(); }
             else { bump(item); skip[retryKey(item)] = true; }
           }).catch(function () { bump(item); skip[retryKey(item)] = true; })
             .then(function () {
-              if (many) { var remain = retryQueue.filter(function (x) { return !skip[retryKey(x)]; }).length; if (remain) toast("同期中… あと" + remain + "件"); }
+              if (many) { var remain = retryQueue.filter(function (x) { return !skip[retryKey(x)]; }).length; updateSending(remain); if (remain) toast("同期中… あと" + remain + "件"); }
               next();
             });
         }
@@ -1979,6 +1998,8 @@
       // 前回の未送信ぶん（端末に保存済み）があれば、取得後に自動で再送する（リロードでも消えない）。
       if (CONNECTED) { pullAll().then(function () { renderLogin(); updateConnBadge(); if (retryQueue.length) flushRetry(); }).catch(function () { _loaded = true; renderLogin(); if (retryQueue.length) flushRetry(); toast("接続に失敗しました。「更新」で再読み込みしてください。"); }); }
       window.addEventListener("afterprint", clearPrintSlips);   // 印刷完了後は必ず印刷スタイル解除＋給与額の残骸を消す
+      // 送信中（未送信ぶんが残っている間）にリロード/閉じようとしたらブラウザ警告を出す（データは端末に残り次回自動送信されるが念のため）
+      window.addEventListener("beforeunload", function (e) { if (CONNECTED && retryQueue.length) { e.preventDefault(); e.returnValue = "シフトを送信中です。"; return e.returnValue; } });
       startAutoRefresh();  // 60秒ごとの自動更新を開始
     </script>
     <!-- 共通カテゴリタブを描画（全ツール共有の単一ファイル） -->
