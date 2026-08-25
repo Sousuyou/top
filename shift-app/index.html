@@ -655,7 +655,9 @@
       }
       var pendingPush = 0;   // 送信中の書き込み件数（更新の取りこぼし防止に使う）
       var retryQueue = store.read("retry_queue", []) || [];   // 送信失敗ぶんを貯めて自動再送。端末に保存し、再読み込みで消えない（＝データ喪失を防ぐ）
-      function persistRetry() { try { store.write("retry_queue", retryQueue); } catch (e) {} }   // 未送信ぶんを端末に保存
+      // 未送信ぶんを端末に保存（PINを含む saveStaff / salary は保存しない＝平文でPINを残さない）
+      function persistRetry() { try { store.write("retry_queue", retryQueue.filter(function (x) { return x.action !== "saveStaff" && x.action !== "salary"; })); } catch (e) {} }
+      persistRetry();   // 起動時に一度掃除：旧版が残したPIN入りsaveStaff等をlocalStorageから即除去
       var pushChains = {};   // 同じマスへの連続書き込みを直列化するための待ち行列（キー→Promise）
       // 同一マス(日付+スタッフ)/同一メモを直列化するためのキー
       function pushKey(action, p) {
@@ -677,58 +679,73 @@
         cur.then(clear, clear);
         return cur;
       }
-      function pushSafe(action, payload) {
-        if (!CONNECTED) return;
-        pendingPush++;
-        chainedApi(action, payload).then(function (res) {
-          if (!res || !res.ok) { requeue({ action: action, payload: payload }); toast("同期エラー：" + ((res && res.error) || "失敗")); }
-        }).catch(function () { requeue({ action: action, payload: payload }); toast("通信に失敗（あとで自動再送します）"); })
-          .then(function () { pendingPush--; });
-      }
-      // 再送キューへ積む（試行回数を数え、5回を超えたら捨ててスパムと無限リトライを防ぐ）
-      function requeue(item) { item.attempts = (item.attempts || 0) + 1; if (item.attempts <= 5) retryQueue.push(item); persistRetry(); }
-      // 再送の重複排除キー（同じマス等は最後の1件だけ送る）
+      // ═══ 送信待ちの「発信箱(outbox)」＝ retryQueue（端末に保存）═══
+      // 保存・申請はまず outbox に入れて端末に記録し、それから1件ずつ送る。だから「送信が終わる前にアプリを閉じても」
+      // 内容は消えず、次にアプリを開いたとき自動で送られる（＝待たなくていい・取りこぼさない）。
+      var draining = false;
+      // 重複排除キー（同じマスは最後の1件だけ持つ＝last-write-wins）
       function retryKey(item) {
         var p = item.payload || {};
         if (item.action === "saveShift" || item.action === "deleteShift") return "shift|" + p.date + "|" + p.staffId;
         if (item.action === "saveNote") return "note|" + p.monthKey + "|" + p.staffId;
         if (item.action === "saveSettings") return "settings";
-        if (item.action === "confirmRange") return "confirm";
-        if (item.action === "saveStaff") return "staff";
+        if (item.action === "confirmRange") return "confirm|" + p.start + "|" + p.end;   // 範囲ごとに別キー（別月/別週の確定が衝突しないように）
         return item.action + "|" + JSON.stringify(p);
       }
-      // {action,payload} の配列を「1件ずつ順番に」送る（同時に送るとGAS側のロック(15秒)が混み合い一部が取りこぼされるため）。
-      // 失敗ぶんは元のactionのまま再送キューへ。まとめ同期中は自動更新を止める（pendingPush）。
-      function sendQueue(queue, doneMsg) {
-        if (!CONNECTED || !queue || !queue.length) return;
-        pendingPush++;
-        var idx = 0, done = 0, failed = 0, CONC = 1;   // 直列送信（同時送信の取りこぼしを防ぐ）
-        function step() {
-          if (idx >= queue.length) return;
-          var q = queue[idx++];
-          chainedApi(q.action, q.payload).then(function (res) {   // 単発pushSafeと同じ行なら直列化（競合防止）
-            if (!res || !res.ok) { failed++; requeue(q); }
-          }).catch(function () { failed++; requeue(q); })
+      // outbox へ1件入れる（同じキーは置き換え）。すぐ端末に保存する。
+      function enqueue(item) {
+        var k = retryKey(item);
+        retryQueue = retryQueue.filter(function (x) { return retryKey(x) !== k; });
+        item.attempts = 0;
+        retryQueue.push(item);
+        persistRetry();
+      }
+      // outbox を1件ずつ送る。成功したら箱から消す（＝保存確定）。失敗はそのまま残し、次の機会に再送。
+      function drainOutbox(doneMsg) {
+        if (!CONNECTED || draining || !retryQueue.length) return;
+        draining = true; pendingPush++;
+        var many = retryQueue.length > 1, skip = {};   // skip=この回で失敗した項目（次の機会まで再試行しない）
+        function bump(item) { item.attempts = (item.attempts || 0) + 1; persistRetry(); }   // 送れるまで保持（未送信ぶんは黙って捨てない）
+        function next() {
+          var item = null;
+          for (var i = 0; i < retryQueue.length; i++) { if (!skip[retryKey(retryQueue[i])]) { item = retryQueue[i]; break; } }
+          if (!item) {
+            pendingPush--; draining = false;
+            var left = retryQueue.length;
+            if (left) toast(left + "件が未送信です（次にアプリを開くと自動で送ります）");
+            else if (doneMsg) toast(doneMsg);
+            return;
+          }
+          chainedApi(item.action, item.payload).then(function (res) {
+            // 成功したら「送った本人」だけ消す（キー一致で消すと、送信中に同じマスを再編集/削除した最新分まで巻き添えで消えてしまう）
+            if (res && res.ok) { retryQueue = retryQueue.filter(function (x) { return x !== item; }); persistRetry(); }
+            else { bump(item); skip[retryKey(item)] = true; }
+          }).catch(function () { bump(item); skip[retryKey(item)] = true; })
             .then(function () {
-              done++;
-              if (done < queue.length) { toast("同期中… " + done + "/" + queue.length); step(); }
-              else { pendingPush--; if (failed) toast(failed + "件が未同期。「更新」で再送します。"); else if (doneMsg) toast(doneMsg); }
+              if (many) { var remain = retryQueue.filter(function (x) { return !skip[retryKey(x)]; }).length; if (remain) toast("同期中… あと" + remain + "件"); }
+              next();
             });
         }
-        for (var c = 0; c < Math.min(CONC, queue.length); c++) step();
+        next();
       }
-      // まとめ申請用：saveShiftのitems配列をsendQueueに載せる
+      // 単発の保存（1マス・メモ・設定など）。まず outbox に入れてすぐ送る（閉じても消えない）。
+      function pushSafe(action, payload) {
+        if (!CONNECTED) return;
+        enqueue({ action: action, payload: payload });
+        drainOutbox();
+      }
+      // 複数件をまとめて送る（まとめ申請・まとめ編集）。全部先に outbox へ保存してから順に送る。
+      function sendQueue(queue, doneMsg) {
+        if (!CONNECTED || !queue || !queue.length) return;
+        queue.forEach(function (q) { enqueue(q); });
+        drainOutbox(doneMsg);
+      }
+      // まとめ申請用：saveShiftのitems配列を outbox に載せる
       function bulkPush(items, doneMsg) {
         sendQueue((items || []).map(function (it) { return { action: "saveShift", payload: it }; }), doneMsg);
       }
-      function flushRetry() {
-        if (!CONNECTED || !retryQueue.length) return;
-        var q = retryQueue; retryQueue = []; persistRetry();
-        // 同じマス等は最後の1件だけ残す（save→deleteの順序不定や重複送信を防ぐ）
-        var seen = {}, dedup = [];
-        for (var i = q.length - 1; i >= 0; i--) { var k = retryKey(q[i]); if (seen[k]) continue; seen[k] = true; dedup.unshift(q[i]); }
-        sendQueue(dedup, "未同期ぶんを再送しました");   // ★元のactionのまま再送（saveShiftに化けさせない）
-      }
+      // 未送信ぶんを送る（更新ボタン・自動更新・起動時から呼ばれる）
+      function flushRetry() { drainOutbox("未送信ぶんを送りました"); }
       // サーバーから全データを取得してメモリに反映（給料は含まれない）
       var pulling = false;
       function pullAll() {
@@ -740,8 +757,10 @@
           var d = res.data || {};
           _shifts = d.shifts || {}; store.write("demo_shifts", _shifts);
           _notes = d.notes || {}; store.write("demo_notes", _notes);
-          var wagePrev = {}; STAFF.forEach(function (p) { if (p.wage) wagePrev[p.id] = p.wage; });
-          STAFF = (d.staff || []).map(function (p) { p.name = cleanName(p.name); p.wage = (salaryUnlocked && wagePrev[p.id]) ? wagePrev[p.id] : 0; return p; });
+          if (!staffPending) {   // メンバー保存が未送信の間は、サーバー値でメンバー一覧を上書きしない（編集の巻き戻り防止）
+            var wagePrev = {}; STAFF.forEach(function (p) { if (p.wage) wagePrev[p.id] = p.wage; });
+            STAFF = (d.staff || []).map(function (p) { p.name = cleanName(p.name); p.wage = (salaryUnlocked && wagePrev[p.id]) ? wagePrev[p.id] : 0; return p; });
+          }
           _settings = { closingDay: (d.settings && d.settings.closingDay) || "end", deadlineDay: parseInt(d.settings && d.settings.deadlineDay, 10) || 25 };
           store.write("demo_settings", _settings);
           // ログイン中ユーザーを新しいメンバー一覧から取り直す（消えていたらログアウト）
@@ -814,7 +833,27 @@
         store.write("owner_pin", "");
         toast("この端末のパスワード保存を解除しました（次回ログイン時に入力が必要です）");
       }
-      function pushStaff() { if (CONNECTED) pushSafe("saveStaff", { pin: _pin, staff: STAFF }); }
+      // メンバー保存はPINを含むので outbox（端末保存）には載せず、その場で直接送る。PINは端末に残さない。
+      // 失敗しても自動で再試行し、送れるまでは自動更新でメンバー一覧を上書きしない（＝編集の巻き戻りを防ぐ）。
+      var staffPending = false, staffSending = false, staffDirty = false, staffRetryT = null;
+      function pushStaff() {
+        if (!CONNECTED) return;
+        staffPending = true;
+        if (staffSending) { staffDirty = true; return; }   // 送信中なら「あとでもう一度」印だけ付ける
+        staffSending = true; staffDirty = false;
+        var snapshot = STAFF.map(function (p) { return { id: p.id, name: p.name, role: p.role, wage: p.wage, worker: p.worker, owner: p.owner }; });
+        api("saveStaff", { pin: _pin, staff: snapshot }).then(function (res) {
+          staffSending = false;
+          if (res && res.ok) {
+            if (staffDirty) { pushStaff(); return; }   // 送信中にさらに編集があれば送り直す
+            staffPending = false; if (staffRetryT) { clearTimeout(staffRetryT); staffRetryT = null; }
+          } else { toast("メンバー保存に失敗：" + ((res && res.error) || "自動で再試行します")); scheduleStaffRetry(); }
+        }).catch(function () { staffSending = false; toast("通信に失敗（メンバー保存）。自動で再試行します"); scheduleStaffRetry(); });
+      }
+      function scheduleStaffRetry() {
+        if (staffRetryT || !staffPending) return;
+        staffRetryT = setTimeout(function () { staffRetryT = null; if (staffPending && CONNECTED && _pin) pushStaff(); }, 8000);
+      }
       function updateConnBadge() {
         var b = document.getElementById("connBadge"); if (b) b.textContent = CONNECTED ? "接続済み" : "ローカル(デモ)";
         var db = document.getElementById("demoBanner"); if (db) db.style.display = CONNECTED ? "none" : "block";
@@ -984,6 +1023,7 @@
         // 認証・表示位置も初期化（前のユーザーの締め期間や表示週が次の人に残らないように）
         pendingOwnerId = null; authBusy = false; pinBusy = false;
         salaryOffset = 0; viewMode = "month"; weekOffset = 0; monthOffset = 0; editing = null;
+        staffPending = false; staffSending = false; staffDirty = false; if (staffRetryT) { clearTimeout(staffRetryT); staffRetryT = null; }   // メンバー保存の再試行状態も初期化
         // 選択モードやパネルの残骸を確実に消す（再ログイン後の壊れ状態を防ぐ）
         selectMode = false; selectedDays = {}; cellSelectMode = false; selectedCells = {};
         var bp = document.getElementById("batchPanel"); if (bp) bp.style.display = "none";
