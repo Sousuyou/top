@@ -321,11 +321,13 @@
       .slip-preview { margin:14px 0; max-height:46vh; overflow:auto; background:var(--panel-soft); border-radius:12px; padding:14px 8px; }
       #slipImage { max-width:100%; border:1px solid var(--line); border-radius:10px; display:block; }
 
-      /* ── 送信中（閉じないで）バナー ── */
-      .sending-overlay { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #fff; padding: 10px 18px; border-radius: 12px; box-shadow: var(--shadow); z-index: 200; display: none; max-width: 92%; text-align: center; }
-      .sending-overlay.show { display: block; }
-      .sending-overlay .st { font-size: 14px; font-weight: 800; }
-      .sending-overlay .ss { font-size: 12px; opacity: .95; margin-top: 2px; }
+      /* ── 送信中（閉じないで）：画面中央に大きく表示。暗幕は出すが操作はロックしない（長引いても固まらない） ── */
+      .sending-overlay { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(20, 19, 15, .55); pointer-events: none; }
+      .sending-overlay.show { display: flex; }
+      .sending-card { background: var(--paper); border: 2px solid var(--gold); border-radius: 20px; box-shadow: var(--shadow); padding: 34px 30px; max-width: 400px; width: 100%; text-align: center; animation: sendingpulse 1.4s ease-in-out infinite; }
+      .sending-card .st { font-size: 23px; font-weight: 800; color: var(--gold); line-height: 1.45; }
+      .sending-card .ss { font-size: 16px; color: var(--text); margin-top: 16px; line-height: 1.7; }
+      @keyframes sendingpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(154,123,50,.45); } 50% { box-shadow: 0 0 0 14px rgba(154,123,50,0); } }
 
       /* ── 印刷（給与明細だけをきれいに出す。印刷ダイアログで「PDFとして保存」も可） ──
          印刷スタイルは body.slip-printing の間だけ有効。こうしないと、通常のブラウザ印刷(Cmd/Ctrl+P)で
@@ -518,10 +520,12 @@
 
     <div id="toast" class="toast"></div>
 
-    <!-- 送信中（閉じないで）バナー -->
+    <!-- 送信中（閉じないで）：画面中央に大きく表示 -->
     <div id="sendingOverlay" class="sending-overlay">
-      <div class="st">シフトを送信中です<span id="sendingCount"></span></div>
-      <div class="ss">画面を閉じたり更新したりしないでください。</div>
+      <div class="sending-card">
+        <div class="st">シフトを送信中です<span id="sendingCount"></span></div>
+        <div class="ss">画面を閉じたり更新したりせず、<br>このまま少しお待ちください。</div>
+      </div>
     </div>
 
     <!-- 暗証番号(PIN)入力モーダル -->
