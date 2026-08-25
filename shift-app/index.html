@@ -850,7 +850,7 @@
       function monthInfo() {
         var base = new Date(); base.setHours(0, 0, 0, 0); base.setDate(1); base.setMonth(base.getMonth() + monthOffset);
         var year = base.getFullYear(), month = base.getMonth();
-        var startDow = (new Date(year, month, 1).getDay() + 6) % 7;
+        var startDow = new Date(year, month, 1).getDay();   // 月カレンダーは日曜始まり（0=日〜6=土）
         var days = new Date(year, month + 1, 0).getDate();
         return { year: year, month: month, startDow: startDow, days: days, base: base };
       }
@@ -1109,15 +1109,15 @@
       function renderCalendar() {
         var shifts = loadShifts(), mi = monthInfo(), cal = document.getElementById("calendar");
         var html = "";
-        DOW.forEach(function (d, i) {
-          var cls = i === 5 ? "sat" : i === 6 ? "sun" : "";
+        ["日", "月", "火", "水", "木", "金", "土"].forEach(function (d, i) {   // 日曜始まりの曜日見出し
+          var cls = i === 0 ? "sun" : i === 6 ? "sat" : "";
           html += "<div class='cal-dow " + cls + "'>" + d + "</div>";
         });
         for (var b = 0; b < mi.startDow; b++) html += "<div class='cal-cell blank'></div>";
         for (var n = 1; n <= mi.days; n++) {
           var date = new Date(mi.year, mi.month, n), k = iso(date);
-          var dowIdx = (date.getDay() + 6) % 7;
-          var dcls = dowIdx === 5 ? "sat" : dowIdx === 6 ? "sun" : "";
+          var dowIdx = date.getDay();   // 0=日〜6=土
+          var dcls = dowIdx === 0 ? "sun" : dowIdx === 6 ? "sat" : "";
           var sel = selectMode && selectedDays[k];
           var chips = "", cnt = 0;
           workers().forEach(function (p) {
