@@ -725,7 +725,7 @@
         if (!CONNECTED || draining || !retryQueue.length) return;
         draining = true; pendingPush++;
         var many = retryQueue.length > 1, skip = {}, didSend = false;   // skip=この回で失敗した項目（次の機会まで再試行しない）
-        if (many) showSending(retryQueue.length);   // まとめ送信中は「送信中（閉じないで）」を表示
+        showSending(retryQueue.length);   // 送信中は必ず「送信中（閉じないで）」を表示（1件でも出す）
         function bump(item) { item.attempts = (item.attempts || 0) + 1; persistRetry(); }   // 送れるまで保持（未送信ぶんは黙って捨てない）
         function next() {
           var item = null;
@@ -745,7 +745,8 @@
             else { bump(item); skip[retryKey(item)] = true; }
           }).catch(function () { bump(item); skip[retryKey(item)] = true; })
             .then(function () {
-              if (many) { var remain = retryQueue.filter(function (x) { return !skip[retryKey(x)]; }).length; updateSending(remain); if (remain) toast("同期中… あと" + remain + "件"); }
+              var remain = retryQueue.filter(function (x) { return !skip[retryKey(x)]; }).length; updateSending(remain);
+              if (many && remain) toast("同期中… あと" + remain + "件");
               next();
             });
         }
