@@ -712,9 +712,18 @@
       function enqueue(item) {
         var k = retryKey(item);
         retryQueue = retryQueue.filter(function (x) { return retryKey(x) !== k; });
-        item.attempts = 0;
+        item.attempts = 0; item.at = Date.now();   // 積んだ時刻（古すぎる命令の破棄に使う）
         retryQueue.push(item);
         persistRetry();
+      }
+      // シフトの版番号(updatedAt)まわり。古い命令でサーバーの新しい状態を壊さないための土台。
+      function verOf(date, sid) { var day = (_shifts || {})[date]; var r = day && day[sid]; return (r && r.updatedAt) || ""; }
+      function applyVersion(item, res) {   // 保存成功時、サーバーが返した新しい版番号を手元に反映
+        if (!res || !res.updatedAt) return;
+        var p = item.payload || {};
+        if (item.action === "saveShift" && p.date && p.staffId) {
+          var day = (_shifts || {})[p.date]; if (day && day[p.staffId]) day[p.staffId].updatedAt = res.updatedAt;
+        }
       }
       // 「送信中（閉じないで）」バナー。まとめ送信の間だけ表示する。
       function showSending(n) { updateSending(n); var el = document.getElementById("sendingOverlay"); if (el) el.classList.add("show"); }
@@ -723,10 +732,20 @@
       // outbox を1件ずつ送る。成功したら箱から消す（＝保存確定）。失敗はそのまま残し、次の機会に再送。
       function drainOutbox(doneMsg) {
         if (!CONNECTED || draining || !retryQueue.length) return;
+        // 保険：古すぎる未送信(24時間超)は蒸し返し防止のため送らずに破棄する
+        var before = retryQueue.length;
+        retryQueue = retryQueue.filter(function (x) { return !(x.at && (Date.now() - x.at) > 86400000); });
+        if (retryQueue.length !== before) { persistRetry(); toast((before - retryQueue.length) + "件の古い未送信を安全のため破棄しました"); }
+        if (!retryQueue.length) return;
         draining = true; pendingPush++;
-        var many = retryQueue.length > 1, skip = {}, didSend = false;   // skip=この回で失敗した項目（次の機会まで再試行しない）
+        var many = retryQueue.length > 1, skip = {}, didSend = false, staleDropped = false;   // skip=この回で失敗した項目
         showSending(retryQueue.length);   // 送信中は必ず「送信中（閉じないで）」を表示（1件でも出す）
-        function bump(item) { item.attempts = (item.attempts || 0) + 1; persistRetry(); }   // 送れるまで保持（未送信ぶんは黙って捨てない）
+        function drop(item) { retryQueue = retryQueue.filter(function (x) { return x !== item; }); persistRetry(); }
+        function bump(item) {   // 送れるまで保持。ただし何度も失敗し続ける命令は上限で破棄（無限再送・蒸し返し防止）
+          item.attempts = (item.attempts || 0) + 1;
+          if (item.attempts > 50) { drop(item); toast("送れない変更を1件、安全のため取り消しました。もう一度入力してください。"); }
+          else persistRetry();
+        }
         function next() {
           var item = null;
           for (var i = 0; i < retryQueue.length; i++) { if (!skip[retryKey(retryQueue[i])]) { item = retryQueue[i]; break; } }
@@ -735,14 +754,18 @@
             var left = retryQueue.length;
             if (left) toast(left + "件が未送信です（次にアプリを開くと自動で送ります）");
             else if (doneMsg) toast(doneMsg);
-            // 送信が終わったら画面をサーバーの確定状態に自動更新（「同期中」のあと画面が変わらない問題を解消）
-            if (didSend && !left && CONNECTED) { pullAll().then(function () { if (currentUser) render(); }).catch(function () {}); }
+            // 送信/破棄が終わったら画面をサーバーの確定状態に自動更新（古い命令を捨てた場合も最新に合わせる）
+            if ((didSend || staleDropped) && !left && CONNECTED) { pullAll().then(function () { if (currentUser) render(); }).catch(function () {}); }
             return;
           }
           chainedApi(item.action, item.payload).then(function (res) {
-            // 成功したら「送った本人」だけ消す（キー一致で消すと、送信中に同じマスを再編集/削除した最新分まで巻き添えで消えてしまう）
-            if (res && res.ok) { didSend = true; retryQueue = retryQueue.filter(function (x) { return x !== item; }); persistRetry(); }
-            else { bump(item); skip[retryKey(item)] = true; }
+            if (res && res.ok) {
+              // 成功：「送った本人」だけ消す（キー一致で消すと送信中の再編集分まで巻き添えになる）。版番号を反映。
+              didSend = true; applyVersion(item, res); drop(item);
+            } else if (res && res.stale) {
+              // サーバーの方が新しい＝この命令は古い。壊さず捨てて、あとで最新を取り直す（巻き戻り防止の要）
+              staleDropped = true; drop(item);
+            } else { bump(item); skip[retryKey(item)] = true; }
           }).catch(function () { bump(item); skip[retryKey(item)] = true; })
             .then(function () {
               var remain = retryQueue.filter(function (x) { return !skip[retryKey(x)]; }).length; updateSending(remain);
@@ -1769,9 +1792,11 @@
           if (cur && cur.status === "confirmed" && !confirm("このシフトは確定済みです。変更すると『希望（未承認）』に戻り、オーナーの再確定が必要になります。よろしいですか？")) return;
         }
         var shifts = loadShifts(); if (!shifts[date]) shifts[date] = {};
+        var base = verOf(date, sid);   // 編集前の版番号（サーバーが新旧を判定する）
+        rec.updatedAt = base;
         shifts[date][sid] = rec;
         saveShifts(shifts);
-        pushSafe("saveShift", { date: date, staffId: sid, rec: rec });
+        pushSafe("saveShift", { date: date, staffId: sid, rec: rec, base: base });
         closeModal(); render(); if (dayModalDate) renderDayList();
       }
       function deleteModal() {
@@ -1783,16 +1808,18 @@
       function confirmShift(date, sid) {
         var shifts = loadShifts(), day = shifts[date];
         if (!day || !day[sid] || day[sid].status === "confirmed") return;
+        var base = day[sid].updatedAt || "";
         day[sid].status = "confirmed";
         saveShifts(shifts);
-        pushSafe("saveShift", { date: date, staffId: sid, rec: day[sid] });
+        pushSafe("saveShift", { date: date, staffId: sid, rec: day[sid], base: base });
         render(); if (dayModalDate) renderDayList();
       }
       // 1件だけ削除する（モーダル・その日の一覧の両方から使う）
       function removeShift(date, sid) {
         var shifts = loadShifts();
+        var base = verOf(date, sid);   // 削除前の版番号
         if (shifts[date]) { delete shifts[date][sid]; saveShifts(shifts); }
-        pushSafe("deleteShift", { date: date, staffId: sid });
+        pushSafe("deleteShift", { date: date, staffId: sid, base: base });
         render(); if (dayModalDate) renderDayList();
       }
 
@@ -1824,7 +1851,7 @@
         if (toMin(rec.end) <= toMin(rec.start)) { alert("終了は開始より後の時刻にしてください。"); return; }
         var shifts = loadShifts();
         var items = [];
-        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var r = { start: rec.start, end: rec.end, break: rec.brk, status: rec.status }; shifts[k][sid] = r; items.push({ date: k, staffId: sid, rec: r }); });
+        days.forEach(function (k) { if (!shifts[k]) shifts[k] = {}; var base = verOf(k, sid); var r = { start: rec.start, end: rec.end, break: rec.brk, status: rec.status, updatedAt: base }; shifts[k][sid] = r; items.push({ date: k, staffId: sid, rec: r, base: base }); });
         saveShifts(shifts);
         var name = STAFF.filter(function (p) { return p.id === sid; })[0].name;
         exitSelectMode(); render();
@@ -1858,10 +1885,11 @@
         var shifts = loadShifts(), items = [];
         keys.forEach(function (key) {
           var c = selectedCells[key];
-          var r = { start: start, end: end, break: brk, status: actingOwner() ? "confirmed" : "requested" };
+          var base = verOf(c.date, c.sid);
+          var r = { start: start, end: end, break: brk, status: actingOwner() ? "confirmed" : "requested", updatedAt: base };
           if (!shifts[c.date]) shifts[c.date] = {};
           shifts[c.date][c.sid] = r;
-          items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: r } });
+          items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: r, base: base } });
         });
         saveShifts(shifts);
         var n = keys.length; exitCellMode(); render();
@@ -1878,8 +1906,9 @@
           if (!day || !day[c.sid]) return;                 // 空マスは対象外
           if (day[c.sid].off) return;                      // 「休み」は確定対象外（件数に数えない）
           if (day[c.sid].status === "confirmed") return;   // すでに確定はそのまま
+          var base = day[c.sid].updatedAt || "";
           day[c.sid].status = "confirmed";
-          items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: day[c.sid] } });
+          items.push({ action: "saveShift", payload: { date: c.date, staffId: c.sid, rec: day[c.sid], base: base } });
           n++;
         });
         if (!n) { alert("確定できる希望シフトが選ばれていません。"); return; }
@@ -1895,8 +1924,9 @@
         var shifts = loadShifts(), items = [];
         keys.forEach(function (key) {
           var c = selectedCells[key];
+          var base = verOf(c.date, c.sid);
           if (shifts[c.date]) delete shifts[c.date][c.sid];
-          items.push({ action: "deleteShift", payload: { date: c.date, staffId: c.sid } });
+          items.push({ action: "deleteShift", payload: { date: c.date, staffId: c.sid, base: base } });
         });
         saveShifts(shifts);
         var n = keys.length; exitCellMode(); render();
@@ -1904,15 +1934,32 @@
       }
 
       // ═══════════════ オーナー：範囲を確定 ═══════════════
+      // 「範囲まとめて確定」ではなく、対象のマスを1件ずつ確定する（＝古い命令が後から範囲全体を塗り替える事故を防ぐ）。
+      // 休み・すでに確定は対象外。希望→確定になる件数を事前に警告してから実行する。
       function confirmRange() {
-        var shifts = loadShifts(), ds = visibleDates();
+        var shifts = loadShifts(), ds = visibleDates(), items = [], reqCount = 0;
+        var scope = viewMode === "week" ? "この週" : focusMonthLabel();
         ds.forEach(function (d) {
-          var day = shifts[iso(d)]; if (day) Object.keys(day).forEach(function (sid) { day[sid].status = "confirmed"; });
+          var day = shifts[iso(d)]; if (!day) return;
+          Object.keys(day).forEach(function (sid) {
+            var r = day[sid]; if (!r || r.off || r.status === "confirmed") return;
+            reqCount++;
+          });
+        });
+        if (!reqCount) { alert(scope + "に、確定できる『希望』シフトはありません。"); return; }
+        if (!confirm(scope + "の『希望』シフト " + reqCount + "件を「確定」にします。\n※確定は給料の集計対象になります。よろしいですか？")) return;
+        ds.forEach(function (d) {
+          var k = iso(d), day = shifts[k]; if (!day) return;
+          Object.keys(day).forEach(function (sid) {
+            var r = day[sid]; if (!r || r.off || r.status === "confirmed") return;
+            var base = r.updatedAt || "";
+            r.status = "confirmed";
+            items.push({ action: "saveShift", payload: { date: k, staffId: sid, rec: r, base: base } });
+          });
         });
         saveShifts(shifts);
-        pushSafe("confirmRange", { start: iso(ds[0]), end: iso(ds[ds.length - 1]) });
         render();
-        alert((viewMode === "week" ? "この週" : focusMonthLabel()) + "のシフトを全員分「確定」にしました。");
+        sendQueue(items, reqCount + "件を「確定」にしました");
       }
 
       // ═══════════════ オーナー：未確定（希望）をまとめて削除 ═══════════════
@@ -1930,8 +1977,9 @@
         if (!confirm(scope + "の未確定（希望）シフト " + targets.length + "件を削除します。\n※「確定」済みのシフトは残ります。よろしいですか？")) return;
         var items = [];
         targets.forEach(function (t) {
+          var base = verOf(t.date, t.sid);
           if (shifts[t.date]) delete shifts[t.date][t.sid];
-          items.push({ action: "deleteShift", payload: { date: t.date, staffId: t.sid } });
+          items.push({ action: "deleteShift", payload: { date: t.date, staffId: t.sid, base: base } });
         });
         saveShifts(shifts);
         render();
