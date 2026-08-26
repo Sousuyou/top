@@ -1255,6 +1255,7 @@
           var acts = "";
           if (isOwner) {
             if (rec.status !== "confirmed") acts += "<button class='small ok-btn dl-confirm' data-sid='" + p.id + "'>確定</button>";
+            else acts += "<button class='small dl-unconfirm' data-sid='" + p.id + "'>希望に戻す</button>";
             acts += "<button class='small del-btn dl-remove' data-sid='" + p.id + "'>削除</button>";
             acts += "<button class='small dl-edit' data-sid='" + p.id + "'>編集</button>";
           } else if (currentUser.id === p.id) {
@@ -1274,6 +1275,9 @@
         });
         Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-confirm"), function (b) {
           b.onclick = function () { confirmShift(dayModalDate, b.getAttribute("data-sid")); };
+        });
+        Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-unconfirm"), function (b) {
+          b.onclick = function () { unconfirmShift(dayModalDate, b.getAttribute("data-sid")); };
         });
         Array.prototype.forEach.call(document.getElementById("dayModalList").querySelectorAll(".dl-remove"), function (b) {
           b.onclick = function () {
@@ -1810,6 +1814,16 @@
         if (!day || !day[sid] || day[sid].status === "confirmed") return;
         var base = day[sid].updatedAt || "";
         day[sid].status = "confirmed";
+        saveShifts(shifts);
+        pushSafe("saveShift", { date: date, staffId: sid, rec: day[sid], base: base });
+        render(); if (dayModalDate) renderDayList();
+      }
+      // 確定を取り消して「希望（審査待ち）」に戻す（オーナー専用）。給料の集計対象からも外れる。
+      function unconfirmShift(date, sid) {
+        var shifts = loadShifts(), day = shifts[date];
+        if (!day || !day[sid] || day[sid].status !== "confirmed") return;
+        var base = day[sid].updatedAt || "";
+        day[sid].status = "requested";
         saveShifts(shifts);
         pushSafe("saveShift", { date: date, staffId: sid, rec: day[sid], base: base });
         render(); if (dayModalDate) renderDayList();
