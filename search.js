@@ -9,7 +9,9 @@
   var BASE = "https://sousuyou.github.io/";
 
   var TOOLS = [
+    { name: "カクテル技法ガイド", url: new URL("cocktail-techniques/", document.currentScript.src).href, kw: "技法 シェイク ステア 仕込み スイッチング 毛利 鹿山 上田 バーテンダー 比較 カクテル 泡 氷 希釈" },
     { name: "ジン在庫カタログ", url: BASE + "gin-stock/", kw: "在庫 カタログ 銘柄 ボタニカル 産地 国 度数 ジン 一覧 ストック" },
+    { name: "蒸留ノート", url: "https://gin-atelier.web.app/", kw: "蒸留 記録 ボタニカル 浸漬 ヴェイパー ハート カット ブレンド 試作 加水 ジン 自家製" },
     { name: "ボタニカル表", url: BASE + "top/botanical-table/", kw: "ボタニカル 香気成分 香り 成分 テルペン リモネン ピネン リナロール ジン 植物 素材 比較" },
     { name: "カクテル原価計算", url: BASE + "cocktail-cost-tool/", kw: "原価 コスト 値段 価格 原価率 売価" },
     { name: "カクテルレシピ帳", url: BASE + "cocktail-recipe-book/", kw: "レシピ カクテル 作り方 ジン" },

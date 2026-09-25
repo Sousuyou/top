@@ -2,7 +2,7 @@
 // 更新方針: ページ本体(HTML)・JSON・JSは「ネットワーク優先」で常に最新を取得し、
 //   オフライン時のみキャッシュを使う。画像・CSSは「キャッシュ優先」で高速表示。
 //   ※JSをネット優先にしたのは、nav.js等の更新を版上げなしで確実に反映するため。
-const CACHE_NAME = "top-v22";
+const CACHE_NAME = "top-v23";
 const CACHE_FILES = [
   "./",
   "./index.html",
@@ -13,6 +13,14 @@ const CACHE_FILES = [
   "./search.js",
   "./boot.js",
   "./manifest.json",
+  "./cocktail-techniques/",
+  "./cocktail-techniques/index.html",
+  "./cocktail-techniques/styles.css",
+  "./cocktail-techniques/theme.css",
+  "./cocktail-techniques/app.js",
+  "./cocktail-techniques/integration.js",
+  "./cocktail-techniques/data.json",
+
   "./assets/icon.svg",
   "./assets/icon-192.png",
   "./assets/icon-512.png",
@@ -34,7 +42,7 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
+          keys.filter((k) => /^top-v\d+$/.test(k) && k !== CACHE_NAME).map((k) => caches.delete(k)),
         ),
       )
       .then(() => self.clients.claim()),
@@ -64,7 +72,13 @@ self.addEventListener("fetch", (event) => {
           return res;
         })
         .catch(() =>
-          caches.match(req).then((r) => r || caches.match("./index.html")),
+          caches.match(req).then(async (r) => {
+            if (r) return r;
+            if (req.mode === "navigate" && url.pathname.includes("/cocktail-techniques/")) {
+              return caches.match("./cocktail-techniques/index.html");
+            }
+            return req.mode === "navigate" ? caches.match("./index.html") : Response.error();
+          }),
         ),
     );
   } else {

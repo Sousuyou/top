@@ -12,6 +12,7 @@
   "use strict";
 
   var BASE = "https://sousuyou.github.io/";
+  var GUIDE_URL = new URL("cocktail-techniques/", document.currentScript.src).href;
 
   // ── 自動更新（全ツール共通）────────────────────────────────────────────
   // PWA/Service Workerの古いキャッシュで最新が出ない問題への対策。
@@ -55,6 +56,7 @@
     { label: "ボタニカル表", path: "top/botanical-table/" },
     { label: "ジンニュース", path: "gin-news/" },
     { label: "ジン教本",    path: "gin-textbook/" },
+    { label: "カクテル技法", path: "top/cocktail-techniques/" },
     { label: "レシピ帳",    path: "cocktail-recipe-book/" },
     { label: "クイズ道場",  path: "gin-textbook/quiz/" },
     { label: "早見表",       path: "gin-textbook/cheatsheet/" },
@@ -92,7 +94,7 @@
     var bestLength = -1;
     var i, url;
     for (i = 0; i < LINKS.length; i++) {
-      url = BASE + LINKS[i].path;
+      url = LINKS[i].path === "top/cocktail-techniques/" ? GUIDE_URL : BASE + LINKS[i].path;
       if (here.indexOf(url) === 0 && url.length > bestLength) {
         bestLength = url.length;
         activeIndex = i;
@@ -101,7 +103,7 @@
 
     var html = "";
     for (i = 0; i < LINKS.length; i++) {
-      url = BASE + LINKS[i].path;
+      url = LINKS[i].path === "top/cocktail-techniques/" ? GUIDE_URL : BASE + LINKS[i].path;
       var cls = "site-nav-link" + (i === activeIndex ? " active" : "");
       html +=
         '<a class="' + cls + '" href="' + url + '">' + LINKS[i].label + "</a>";
