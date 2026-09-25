@@ -167,7 +167,7 @@
 
   function botanicalHay(b) {
     return norm([
-      b.name, b.reading, b.latin, b.group, plantFamily(b), b.part, b.aroma, b.role, b.components.join(" ")
+      b.name, b.reading, (b.aliases || []).join(" "), b.latin, b.group, plantFamily(b), b.part, b.aroma, b.role, b.components.join(" ")
     ].join(" "));
   }
 
@@ -247,7 +247,8 @@
       var usage = usageCounts[b.name] || 0;
       return '<article class="botanical-card' + (on ? " is-selected" : "") + '">' +
         '<div class="botanical-head">' +
-          '<div><h3 class="botanical-name">' + esc(b.name) + '</h3><p class="latin">' + esc(b.latin) + '</p></div>' +
+          '<div><h3 class="botanical-name">' + esc(b.name) + '</h3><p class="latin">' + esc(b.latin) + '</p>' +
+          (b.aliases && b.aliases.length ? '<p class="latin">別名：' + esc(b.aliases.join("・")) + '</p>' : '') + '</div>' +
           '<span class="group-badge">' + esc(b.group) + '</span>' +
         '</div>' +
         '<div class="meta-line">' +
