@@ -54,6 +54,7 @@
     { label: "TOP",        path: "top/" },
     { label: "在庫カタログ", path: "gin-stock/" },
     { label: "ボタニカル表", path: "top/botanical-table/" },
+    { label: "蒸留ノート",  url: "https://gin-atelier.web.app/" },
     { label: "ジンニュース", path: "gin-news/" },
     { label: "ジン教本",    path: "gin-textbook/" },
     { label: "カクテル技法", path: "top/cocktail-techniques/" },
@@ -64,6 +65,12 @@
     { label: "投稿メーカー", path: "post-maker/" },
     { label: "勤怠管理",    path: "top/shift-app/" },
   ];
+
+  // リンク先のURL。別ドメインのツール（蒸留ノートなど）は url に完全なURLを書く。
+  function linkUrl(link) {
+    if (link.url) return link.url;
+    return link.path === "top/cocktail-techniques/" ? GUIDE_URL : BASE + link.path;
+  }
 
   // スマホ表示ではナビを2段（グリッド）に折り返し、横スクロールせず全タブを見せる。
   // ※共通の単一ファイルなので、ここを直すと全ツールのナビに反映される。
@@ -94,7 +101,7 @@
     var bestLength = -1;
     var i, url;
     for (i = 0; i < LINKS.length; i++) {
-      url = LINKS[i].path === "top/cocktail-techniques/" ? GUIDE_URL : BASE + LINKS[i].path;
+      url = linkUrl(LINKS[i]);
       if (here.indexOf(url) === 0 && url.length > bestLength) {
         bestLength = url.length;
         activeIndex = i;
@@ -103,7 +110,7 @@
 
     var html = "";
     for (i = 0; i < LINKS.length; i++) {
-      url = LINKS[i].path === "top/cocktail-techniques/" ? GUIDE_URL : BASE + LINKS[i].path;
+      url = linkUrl(LINKS[i]);
       var cls = "site-nav-link" + (i === activeIndex ? " active" : "");
       html +=
         '<a class="' + cls + '" href="' + url + '">' + LINKS[i].label + "</a>";
