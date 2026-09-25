@@ -11,6 +11,12 @@
   var COMPONENTS = BOTANICAL_DATA.components || {};
   var BOTANICALS = BOTANICAL_DATA.botanicals || [];
   var PLANT_FAMILIES = BOTANICAL_DATA.families || {};
+  // 在庫カタログなどの表記ゆれ（例：生姜）を表の名前（例：ジンジャー）に読み替える辞書。共通データの aliasMap を使う。
+  var DATA_ALIASES = BOTANICAL_DATA.aliasMap || {};
+  var ALIAS_WORDS = {};
+  Object.keys(DATA_ALIASES).forEach(function (word) {
+    (ALIAS_WORDS[DATA_ALIASES[word]] = ALIAS_WORDS[DATA_ALIASES[word]] || []).push(word);
+  });
   var STOCK_DATA_URLS = ["/gin-stock/gins.json", "/gin-stock-repo/gins.json", "../../gin-stock-repo/gins.json"];
   var usageCounts = {};
   var STOCK_BOTANICAL_ALIASES = {
@@ -85,7 +91,7 @@
 
   function stockTokenToBotanical(name) {
     if (!name || STOCK_BOTANICAL_JUNK[name]) return null;
-    var wanted = STOCK_BOTANICAL_ALIASES[name] || name;
+    var wanted = STOCK_BOTANICAL_ALIASES[name] || DATA_ALIASES[name] || name;
     if (name.indexOf("ジュニパー") >= 0) wanted = "ジュニパーベリー";
     var key = compactName(wanted);
     for (var i = 0; i < BOTANICALS.length; i++) {
@@ -167,7 +173,7 @@
 
   function botanicalHay(b) {
     return norm([
-      b.name, b.reading, (b.aliases || []).join(" "), b.latin, b.group, plantFamily(b), b.part, b.aroma, b.role, b.components.join(" ")
+      b.name, b.reading, (b.aliases || []).join(" "), (ALIAS_WORDS[b.name] || []).join(" "), b.latin, b.group, plantFamily(b), b.part, b.aroma, b.role, b.components.join(" ")
     ].join(" "));
   }
 
