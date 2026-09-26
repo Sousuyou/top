@@ -272,8 +272,10 @@
     }).join("");
   }
 
-  // 文献データ（精油の量・成分の割合・出典）。30種ほどの主要な素材にだけある。
+  // 文献データ（精油の量・成分の割合・出典）。在庫カタログでよく使われる素材にある。
+  // 果実の香気成分（0.0015% など）のような小さな値は、有効数字2桁で出す。
   function num(v) {
+    if (v !== 0 && Math.abs(v) < 0.1) return String(Number(v.toPrecision(2)));
     return String(Math.round(v * 100) / 100);
   }
 
@@ -284,9 +286,9 @@
       return esc(c.name) + " " + num(c.percent) + "%";
     }).join(" / ");
     return '<details class="literature">' +
-      '<summary>文献データ：精油 ' + (oil.percent != null ? num(oil.percent) + "%" : "—") + esc(range) + '</summary>' +
+      '<summary>文献データ：' + esc(oil.label || "精油") + ' ' + (oil.percent != null ? num(oil.percent) + "%" : "—") + esc(range) + '</summary>' +
       (oil.basis ? '<p>' + esc(oil.basis) + '</p>' : '') +
-      '<p><b>精油の成分:</b> ' + comps + '</p>' +
+      '<p><b>' + (oil.label === "香気成分" ? "香気成分の割合" : "精油の成分") + ':</b> ' + comps + '</p>' +
       (lit.note ? '<p>' + esc(lit.note) + '</p>' : '') +
       '<ol>' + (lit.sources || []).map(function (s) {
         return '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(s.title) + '</a></li>';
