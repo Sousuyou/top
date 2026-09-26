@@ -446,6 +446,42 @@ th {
   color: var(--text);
 }
 
+/* 文献データ（精油の量・成分の割合・出典） */
+.literature {
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+.literature summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 700;
+}
+.literature p {
+  margin: 4px 0 0;
+}
+.literature b {
+  color: var(--text);
+}
+.literature ol {
+  margin: 4px 0 0;
+  padding-left: 1.3em;
+}
+.literature a {
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+td.threshold {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+td.threshold a {
+  color: inherit;
+}
+
 .botanical-card .select-btn {
   margin-top: auto;
   width: 100%;

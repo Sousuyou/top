@@ -266,9 +266,32 @@
         '<p class="aroma">' + esc(b.aroma) + '</p>' +
         '<p class="role">' + esc(b.role) + '</p>' +
         '<p class="components"><b>主成分:</b> ' + esc(b.components.slice(0, 6).join(" / ")) + '</p>' +
+        (b.literature ? literatureHtml(b.literature) : '') +
         '<button type="button" class="select-btn' + (on ? " is-active" : "") + '" data-name="' + esc(b.name) + '">' + (on ? "選択中" : "選択する") + '</button>' +
       '</article>';
     }).join("");
+  }
+
+  // 文献データ（精油の量・成分の割合・出典）。30種ほどの主要な素材にだけある。
+  function num(v) {
+    return String(Math.round(v * 100) / 100);
+  }
+
+  function literatureHtml(lit) {
+    var oil = lit.oil || {};
+    var range = oil.min != null && oil.max != null ? "（" + num(oil.min) + "〜" + num(oil.max) + "%）" : "";
+    var comps = (lit.composition || []).slice(0, 5).map(function (c) {
+      return esc(c.name) + " " + num(c.percent) + "%";
+    }).join(" / ");
+    return '<details class="literature">' +
+      '<summary>文献データ：精油 ' + (oil.percent != null ? num(oil.percent) + "%" : "—") + esc(range) + '</summary>' +
+      (oil.basis ? '<p>' + esc(oil.basis) + '</p>' : '') +
+      '<p><b>精油の成分:</b> ' + comps + '</p>' +
+      (lit.note ? '<p>' + esc(lit.note) + '</p>' : '') +
+      '<ol>' + (lit.sources || []).map(function (s) {
+        return '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(s.title) + '</a></li>';
+      }).join("") + '</ol>' +
+    '</details>';
   }
 
   function selectedBotanicals() {
@@ -281,7 +304,7 @@
       b.components.forEach(function (name) {
         if (!map[name]) {
           var info = COMPONENTS[name] || { family: "その他", note: "代表成分。詳細メモ未登録" };
-          map[name] = { name: name, family: info.family, note: info.note, botanicals: [] };
+          map[name] = { name: name, family: info.family, note: info.note, threshold: info.threshold || null, botanicals: [] };
         }
         map[name].botanicals.push(b.name);
       });
@@ -319,7 +342,7 @@
 
     if (!rows.length) {
       els.familySummary.innerHTML = "";
-      els.componentTable.innerHTML = '<tr><td colspan="4">選択すると香気成分がここにまとまります。</td></tr>';
+      els.componentTable.innerHTML = '<tr><td colspan="5">選択すると香気成分がここにまとまります。</td></tr>';
       return;
     }
 
@@ -338,6 +361,7 @@
         '<td><span class="component-name">' + esc(r.name) + '</span><span class="component-count">' + r.botanicals.length + '</span></td>' +
         '<td>' + esc(r.family) + '</td>' +
         '<td>' + esc(r.note) + '</td>' +
+        '<td class="threshold">' + (r.threshold ? '<a href="' + esc(r.threshold.url) + '" target="_blank" rel="noopener noreferrer" title="' + esc(r.threshold.source) + '">' + num(r.threshold.value) + '</a>' : '—') + '</td>' +
         '<td>' + esc(r.botanicals.join(" / ")) + '</td>' +
       '</tr>';
     }).join("");
