@@ -21,7 +21,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 2000,
-          "medium": "20%エタノール（Clutton & Evans 1978, ジンの香気成分）"
+          "medium": "20%エタノール（Clutton & Evans 1978, ジンの香気成分）",
+          "abv": 20
         }
       }
     },
@@ -37,7 +38,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 3500,
-          "medium": "20%エタノール（Clutton & Evans 1978）"
+          "medium": "20%エタノール（Clutton & Evans 1978）",
+          "abv": 20
         }
       }
     },
@@ -53,7 +55,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 101,
-          "medium": "45%エタノール（Buck et al. 2020）"
+          "medium": "45%エタノール（Buck et al. 2020）",
+          "abv": 45
         }
       }
     },
@@ -79,7 +82,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 2804,
-          "medium": "45%エタノール（Buck et al. 2020, ババリアのジン2銘柄の研究）"
+          "medium": "45%エタノール（Buck et al. 2020, ババリアのジン2銘柄の研究）",
+          "abv": 45
         }
       }
     },
@@ -95,7 +99,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11988591/",
         "ethanol": {
           "value": 23,
-          "medium": "水/エタノール 6:4（約40%）"
+          "medium": "水/エタノール 6:4（約40%）",
+          "abv": 40
         }
       }
     },
@@ -111,7 +116,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9695488/",
         "ethanol": {
           "value": 30,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -127,7 +133,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7766395/",
         "ethanol": {
           "value": 100,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -197,7 +204,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7766395/",
         "ethanol": {
           "value": 68.4,
-          "medium": "モデルワイン（12%）"
+          "medium": "モデルワイン（12%）",
+          "abv": 12
         }
       }
     },
@@ -213,7 +221,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12018022/",
         "ethanol": {
           "value": 20.9,
-          "medium": "モデルワイン（12%）"
+          "medium": "モデルワイン（12%）",
+          "abv": 12
         }
       }
     },
@@ -257,7 +266,8 @@
         "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12167021/fullTextXML",
         "ethanol": {
           "value": 635,
-          "medium": "45%エタノール（Buck et al. 2020）"
+          "medium": "45%エタノール（Buck et al. 2020）",
+          "abv": 45
         }
       }
     },
@@ -301,7 +311,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13400954/",
         "ethanol": {
           "value": 748,
-          "medium": "45%エタノール（Buck et al. 2020, ジンの研究）"
+          "medium": "45%エタノール（Buck et al. 2020, ジンの研究）",
+          "abv": 45
         }
       }
     },
@@ -321,7 +332,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 6,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -341,7 +353,8 @@
         "url": "https://mdpi-res.com/d_attachment/foods/foods-14-03570/article_deploy/foods-14-03570.pdf",
         "ethanol": {
           "value": 1180,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -457,7 +470,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 7.3,
-          "medium": "40%エタノール（Lu et al. 2025）"
+          "medium": "40%エタノール（Lu et al. 2025）",
+          "abv": 40
         }
       }
     },
@@ -501,7 +515,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 200,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -525,7 +540,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 1000,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -581,7 +597,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 14000,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -597,7 +614,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 0.2,
-          "medium": "10%エタノール（cis体、Guth 1997）"
+          "medium": "10%エタノール（cis体、Guth 1997）",
+          "abv": 10
         }
       }
     },
@@ -681,7 +699,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12887069/",
         "ethanol": {
           "value": 1500,
-          "medium": "20%エタノール（Clutton & Evans 1978）"
+          "medium": "20%エタノール（Clutton & Evans 1978）",
+          "abv": 20
         }
       }
     },
@@ -731,7 +750,8 @@
         "url": "https://img.perfumerflavorist.com/files/base/allured/all/document/2016/03/pf.9106.pdf",
         "ethanol": {
           "value": 101,
-          "medium": "45%エタノール（Buck et al. 2020）"
+          "medium": "45%エタノール（Buck et al. 2020）",
+          "abv": 45
         }
       }
     },
@@ -1033,7 +1053,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11988591/",
         "ethanol": {
           "value": 250,
-          "medium": "モデルワイン（水/エタノール 90+10）"
+          "medium": "モデルワイン（水/エタノール 90+10）",
+          "abv": 10
         }
       }
     },
@@ -1069,7 +1090,8 @@
         "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12938864/",
         "ethanol": {
           "value": 735.9,
-          "medium": "モデルワイン（12%）"
+          "medium": "モデルワイン（12%）",
+          "abv": 12
         }
       }
     },
