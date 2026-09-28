@@ -383,7 +383,7 @@
           (oil.min != null && oil.max != null ? "（" + num(oil.min) + "〜" + num(oil.max) + "%）" : "") +
           (oil.basis ? '<br>' + esc(oil.basis) : '') + '</p>'
         : '<p class="detail-oil">文献データはまだありません。成分は代表成分です。</p>') +
-      '<p class="detail-foot">右の表で、' + esc(b.name) + 'に入っている成分に色をつけています。</p>' +
+      '<p class="detail-foot">「香気成分の集計」の表で、' + esc(b.name) + 'に入っている成分に色をつけています。</p>' +
     '</article>';
   }
 
