@@ -62,8 +62,14 @@
   var STOCK_BOTANICAL_JUNK = {
     "不明": 1, "公式情報なし": 1, "非公開": 1, "情報なし": 1, "その他": 1,
     "スパイス": 1, "ハーブ": 1, "各種": 1, "数種": 1, "複数": 1, "各種ボタニカル": 1,
-    "シトラス": 1, "柑橘": 1, "柑橘ピール": 1, "核果": 1, "ストーンフルーツ": 1
+    "シトラス": 1, "柑橘": 1, "柑橘ピール": 1, "柑橘類": 1, "柑橘の皮": 1, "シトラスピール": 1, "シトラスゼスト": 1,
+    "核果": 1, "ストーンフルーツ": 1
   };
+  // 名前の一部を含んでいても、在庫カタログで読み替えない言葉（例：花梨は梨ではない）。共通データの aliasExcludes を使う。
+  var DATA_EXCLUDES = {};
+  (BOTANICAL_DATA.aliasExcludes || []).forEach(function (word) {
+    DATA_EXCLUDES[compactName(word)] = 1;
+  });
 
   var els = {};
   var selected = loadSelected();
@@ -91,33 +97,126 @@
     return norm(name).replace(/[ー\s・･]/g, "");
   }
 
-  function stockTokenToBotanical(name) {
-    if (!name || STOCK_BOTANICAL_JUNK[name]) return null;
-    var wanted = STOCK_BOTANICAL_ALIASES[name] || DATA_ALIASES[name] || name;
-    if (name.indexOf("ジュニパー") >= 0) wanted = "ジュニパーベリー";
-    var key = compactName(wanted);
-    for (var i = 0; i < BOTANICALS.length; i++) {
-      if (compactName(BOTANICALS[i].name) === key) return BOTANICALS[i].name;
+  // 表の名前と、表の別名（aliases）のどちらかと同じ言葉なら、その名前。
+  var STOCK_NAME_KEYS = null;
+  function stockNameKeys() {
+    if (!STOCK_NAME_KEYS) {
+      STOCK_NAME_KEYS = [];
+      BOTANICALS.forEach(function (b) {
+        STOCK_NAME_KEYS.push({ name: b.name, key: compactName(b.name), alias: false });
+      });
+      BOTANICALS.forEach(function (b) {
+        (b.aliases || []).forEach(function (a) {
+          STOCK_NAME_KEYS.push({ name: b.name, key: compactName(a), alias: true });
+        });
+      });
     }
-    for (var j = 0; j < BOTANICALS.length; j++) {
-      var bkey = compactName(BOTANICALS[j].name);
-      if (bkey.indexOf(key) >= 0 || key.indexOf(bkey) >= 0) return BOTANICALS[j].name;
+    return STOCK_NAME_KEYS;
+  }
+
+  function stockNameOf(token) {
+    var key = compactName(token);
+    if (!key) return null;
+    var keys = stockNameKeys();
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].key === key) return keys[i].name;
     }
     return null;
   }
 
+  // 辞書は、カタカナとひらがな・空白・長音の違いを気にせず引く（イチゴ／いちご）
+  var STOCK_DICTIONARY = null;
+  function stockDictOf(token) {
+    if (!STOCK_DICTIONARY) {
+      STOCK_DICTIONARY = {};
+      [STOCK_BOTANICAL_ALIASES, DATA_ALIASES].forEach(function (map) {
+        Object.keys(map).forEach(function (word) {
+          STOCK_DICTIONARY[compactName(word)] = map[word];
+        });
+      });
+    }
+    var target = STOCK_DICTIONARY[compactName(token)];
+    return target ? stockNameOf(target) : null;
+  }
+
+  // 名前の一部が合うもの。言葉の中に表の名前があれば長い名前を（黄柚子→柚子）、なければ言葉を含む短い名前を選ぶ（カカオ→カカオニブ）。
+  // 2文字以下の言葉は、1文字の名前を含むときだけ（白桃→桃）。読み替えない言葉（aliasExcludes：花梨など）は読まない。
+  function stockPartialOf(token) {
+    var key = compactName(token);
+    if (!key || DATA_EXCLUDES[key]) return null;
+    var keys = stockNameKeys(), best = null, i, k;
+    for (i = 0; i < keys.length; i++) {
+      k = keys[i].key;
+      if (keys[i].alias || !k) continue;
+      if (key.indexOf(k) >= 0 && (key.length >= 3 || k.length === 1) && (!best || k.length > best.key.length)) best = keys[i];
+    }
+    if (best) return best.name;
+    if (key.length < 3) return null;
+    for (i = 0; i < keys.length; i++) {
+      k = keys[i].key;
+      if (keys[i].alias || !k) continue;
+      if (k.indexOf(key) >= 0 && (!best || k.length < best.key.length)) best = keys[i];
+    }
+    return best ? best.name : null;
+  }
+
+  function stockTokenToBotanical(name) {
+    if (!name || STOCK_BOTANICAL_JUNK[name]) return null;
+    return stockNameOf(name) || stockDictOf(name) ||
+      (name.indexOf("ジュニパー") >= 0 ? stockNameOf("ジュニパーベリー") : null) || stockPartialOf(name);
+  }
+
+  // 素材の区切り（、,／/・改行）で分ける。かっこの中（グレインズ・オブ・パラダイスなど）では分けない。
+  // 「・オブ・」は区切りではないのでつなげる。かっこの数が合わない文章は、かっこを気にせず分ける。
+  function splitStockBotanicals(text) {
+    var value = String(text || "").replace(/・オブ・/g, "オブ");
+    var opens = (value.match(/[（(]/g) || []).length;
+    var closes = (value.match(/[）)]/g) || []).length;
+    if (opens !== closes) return value.split(/[、,／/・\n]+/);
+    var parts = [], depth = 0, part = "";
+    for (var i = 0; i < value.length; i++) {
+      var ch = value.charAt(i);
+      if (ch === "（" || ch === "(") depth++;
+      else if ((ch === "）" || ch === ")") && depth > 0) depth--;
+      if (depth === 0 && /[、,／/・\n]/.test(ch)) {
+        parts.push(part);
+        part = "";
+      } else {
+        part += ch;
+      }
+    }
+    parts.push(part);
+    return parts;
+  }
+
+  function cleanStockToken(value) {
+    return String(value || "").replace(/（[^）]*）/g, "").replace(/\([^)]*\)/g, "").trim()
+      .replace(/(など|等|ほか|他)$/, "").trim();
+  }
+
   function stockBotTokens(text) {
     if (!text) return [];
-    var parts = String(text).split(/[、,／/・\n]+/);
+    var parts = splitStockBotanicals(text);
     var seen = {}, out = [];
-    for (var i = 0; i < parts.length; i++) {
-      var p = parts[i].replace(/（[^）]*）/g, "").replace(/\([^)]*\)/g, "").trim();
-      p = p.replace(/(など|等|ほか|他)$/, "").trim();
-      var name = stockTokenToBotanical(p);
+    function add(name) {
       if (name && !seen[name]) {
         seen[name] = 1;
         out.push(name);
       }
+    }
+    for (var i = 0; i < parts.length; i++) {
+      var raw = parts[i];
+      var token = cleanStockToken(raw);
+      var inner = raw.match(/[（(]([^）)]*)[）)]/);
+      var innerItems = (inner ? inner[1] : "").split(/[、,・/／]+/).map(cleanStockToken).filter(Boolean);
+      // 「緑茶（玉露）」は、かっこの中のほうが表の名前に合うので、そちらを使う
+      var name = stockNameOf(token) || (innerItems.length === 1 ? stockNameOf(innerItems[0]) : null) || stockTokenToBotanical(token);
+      if (name) {
+        add(name);
+        continue;
+      }
+      // 「シトラスピール（オレンジ・レモン）」「チョピ（韓国山椒）」は、かっこの中の素材を読む
+      innerItems.forEach(function (item) { add(stockTokenToBotanical(item)); });
     }
     return out;
   }
