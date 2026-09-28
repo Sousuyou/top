@@ -67,6 +67,8 @@
 
   var els = {};
   var selected = loadSelected();
+  // 選んだボタニカルのうち、名前を押して特性と香気成分を開いているもの
+  var active = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -326,14 +328,63 @@
 
   function renderSelected() {
     var items = selectedBotanicals();
+    if (active && !selected.has(active)) active = null;
     if (!items.length) {
       els.selectedList.innerHTML = '<p class="empty">ボタニカルカードの「選択する」を押すと、ここに並びます。</p>';
+      els.selectedDetail.innerHTML = "";
       return;
     }
     els.selectedList.innerHTML = items.map(function (b) {
-      return '<span class="selected-pill">' + esc(b.name) +
-        '<button type="button" aria-label="' + esc(b.name) + 'を外す" data-remove="' + esc(b.name) + '">×</button></span>';
+      var on = b.name === active;
+      return '<span class="selected-pill' + (on ? " is-active" : "") + '">' +
+        '<button type="button" class="pill-name" data-show="' + esc(b.name) + '" aria-pressed="' + on + '" aria-controls="selected-detail">' + esc(b.name) + '</button>' +
+        '<button type="button" class="pill-remove" aria-label="' + esc(b.name) + 'を外す" data-remove="' + esc(b.name) + '">×</button></span>';
     }).join("");
+    var b = active ? byName(active) : null;
+    els.selectedDetail.innerHTML = b ? detailHtml(b) : '<p class="detail-hint">名前を押すと、そのボタニカルの特性と香気成分が見られます。</p>';
+  }
+
+  // 1つのボタニカルの特性（香り・役割・部位・科）と香気成分。文献データがあれば、精油の中の割合も出す。
+  function detailHtml(b) {
+    var lit = b.literature;
+    var percents = {};
+    var order = [];
+    if (lit && lit.composition) {
+      lit.composition.forEach(function (c) { percents[c.name] = c.percent; order.push(c.name); });
+    }
+    b.components.forEach(function (name) { if (order.indexOf(name) < 0) order.push(name); });
+    var oil = lit && lit.oil ? lit.oil : null;
+    var usage = usageCounts[b.name] || 0;
+    return '<article class="detail" aria-label="' + esc(b.name) + 'の特性と香気成分">' +
+      '<div class="detail-head">' +
+        '<div><h3>' + esc(b.name) + '</h3><p class="latin">' + esc(b.latin) + '</p></div>' +
+        '<button type="button" class="detail-close" data-close="1">閉じる</button>' +
+      '</div>' +
+      '<dl class="detail-facts">' +
+        '<div><dt>分類</dt><dd>' + esc(b.group) + '</dd></div>' +
+        '<div><dt>科</dt><dd>' + esc(plantFamily(b)) + '</dd></div>' +
+        '<div><dt>部位</dt><dd>' + esc(b.part) + '</dd></div>' +
+        '<div><dt>在庫カタログ</dt><dd>' + usage + '銘柄</dd></div>' +
+      '</dl>' +
+      '<p class="detail-text"><b>香り</b>' + esc(b.aroma) + '</p>' +
+      '<p class="detail-text"><b>役割</b>' + esc(b.role) + '</p>' +
+      '<h4 class="detail-sub">香気成分' + (oil ? '<span>' + esc(oil.label === "香気成分" ? "香気成分の中の割合" : "精油の中の割合") + '</span>' : '<span>代表成分</span>') + '</h4>' +
+      '<ul class="detail-components">' + order.map(function (name) {
+        var info = COMPONENTS[name] || { family: "その他", note: "代表成分。詳細メモ未登録" };
+        var pct = percents[name];
+        return '<li>' +
+          '<span class="dc-name">' + esc(name) + '</span>' +
+          '<span class="dc-pct">' + (pct != null ? num(pct) + "%" : "") + '</span>' +
+          '<span class="dc-meta">' + esc(info.family) + '・' + esc(info.note) + '</span>' +
+        '</li>';
+      }).join("") + '</ul>' +
+      (oil
+        ? '<p class="detail-oil">文献データ：' + esc(oil.label || "精油") + ' ' + (oil.percent != null ? num(oil.percent) + "%" : "—") +
+          (oil.min != null && oil.max != null ? "（" + num(oil.min) + "〜" + num(oil.max) + "%）" : "") +
+          (oil.basis ? '<br>' + esc(oil.basis) : '') + '</p>'
+        : '<p class="detail-oil">文献データはまだありません。成分は代表成分です。</p>') +
+      '<p class="detail-foot">右の表で、' + esc(b.name) + 'に入っている成分に色をつけています。</p>' +
+    '</article>';
   }
 
   function renderComponents() {
@@ -359,7 +410,8 @@
     }).join("");
 
     els.componentTable.innerHTML = rows.map(function (r) {
-      return '<tr>' +
+      var mine = active && r.botanicals.indexOf(active) >= 0;
+      return '<tr' + (mine ? ' class="is-active"' : '') + '>' +
         '<td><span class="component-name">' + esc(r.name) + '</span><span class="component-count">' + r.botanicals.length + '</span></td>' +
         '<td>' + esc(r.family) + '</td>' +
         '<td>' + esc(r.note) + '</td>' +
@@ -400,11 +452,28 @@
       toggle(btn.getAttribute("data-name"));
     });
     els.selectedList.addEventListener("click", function (e) {
+      var show = e.target.closest("[data-show]");
+      if (show) {
+        var name = show.getAttribute("data-show");
+        active = active === name ? null : name;
+        renderSelected();
+        renderComponents();
+        return;
+      }
       var btn = e.target.closest("[data-remove]");
       if (!btn) return;
       selected.delete(btn.getAttribute("data-remove"));
       saveSelected();
       render();
+    });
+    els.selectedDetail.addEventListener("click", function (e) {
+      if (!e.target.closest("[data-close]")) return;
+      var name = active;
+      active = null;
+      renderSelected();
+      renderComponents();
+      var pill = name && els.selectedList.querySelector('[data-show="' + (window.CSS && CSS.escape ? CSS.escape(name) : name) + '"]');
+      if (pill) pill.focus();
     });
     els.resetFilters.addEventListener("click", function () {
       els.search.value = "";
@@ -428,6 +497,7 @@
       resultCount: $("result-count"),
       botanicalList: $("botanical-list"),
       selectedList: $("selected-list"),
+      selectedDetail: $("selected-detail"),
       componentTable: $("component-table"),
       familySummary: $("family-summary"),
       componentNote: $("component-note"),
