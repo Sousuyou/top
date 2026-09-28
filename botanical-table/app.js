@@ -380,14 +380,20 @@
     return String(Math.round(v * 100) / 100);
   }
 
+  // 文献データの量の見出し。量のわかる資料がなく、成分の割合だけのときはそう書く
+  function oilSummary(oil) {
+    if (oil.percent == null) return "成分の割合だけ（量のわかる資料なし）";
+    var range = oil.min != null && oil.max != null ? "（" + num(oil.min) + "〜" + num(oil.max) + "%）" : "";
+    return (oil.label || "精油") + " " + num(oil.percent) + "%" + range;
+  }
+
   function literatureHtml(lit) {
     var oil = lit.oil || {};
-    var range = oil.min != null && oil.max != null ? "（" + num(oil.min) + "〜" + num(oil.max) + "%）" : "";
     var comps = (lit.composition || []).slice(0, 5).map(function (c) {
       return esc(c.name) + " " + num(c.percent) + "%";
     }).join(" / ");
     return '<details class="literature">' +
-      '<summary>文献データ：' + esc(oil.label || "精油") + ' ' + (oil.percent != null ? num(oil.percent) + "%" : "—") + esc(range) + '</summary>' +
+      '<summary>文献データ：' + esc(oilSummary(oil)) + '</summary>' +
       (oil.basis ? '<p>' + esc(oil.basis) + '</p>' : '') +
       '<p><b>' + (oil.label === "香気成分" ? "香気成分の割合" : "精油の成分") + ':</b> ' + comps + '</p>' +
       (lit.note ? '<p>' + esc(lit.note) + '</p>' : '') +
@@ -478,8 +484,7 @@
         '</li>';
       }).join("") + '</ul>' +
       (oil
-        ? '<p class="detail-oil">文献データ：' + esc(oil.label || "精油") + ' ' + (oil.percent != null ? num(oil.percent) + "%" : "—") +
-          (oil.min != null && oil.max != null ? "（" + num(oil.min) + "〜" + num(oil.max) + "%）" : "") +
+        ? '<p class="detail-oil">文献データ：' + esc(oilSummary(oil)) +
           (oil.basis ? '<br>' + esc(oil.basis) : '') + '</p>'
         : '<p class="detail-oil">文献データはまだありません。成分は代表成分です。</p>') +
       '<p class="detail-foot">「香気成分の集計」の表で、' + esc(b.name) + 'に入っている成分に色をつけています。</p>' +
